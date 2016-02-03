@@ -440,13 +440,12 @@ add_feature(USE_ROUTING "default" TRUE)
 add_feature(USE_SVG "default" TRUE)
 add_feature(SVG2PNG "default" TRUE)
 add_feature(SAMPLE_MAP "default" TRUE)
-
-if(I2CDEV_FOUND)
-	set_with_reason(plugin/i2c "i2c lib found" true)
-endif(I2CDEV_FOUND)
+add_feature(USE_I2C "default" FALSE)
 
 if(HAVE_I2C_DEV)
-	set_with_reason(plugin/i2c "i2c lib found" true)
+	if(USE_I2C)
+		set_with_reason(plugin/i2c "i2c lib found and set by user" true)
+	endifif(USE_I2C)
 endif(HAVE_I2C_DEV)
 
 
