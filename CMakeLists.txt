@@ -445,6 +445,8 @@ add_feature(USE_I2C "default" FALSE)
 if(HAVE_I2C_DEV)
 	if(USE_I2C)
 		set_with_reason(plugin/i2c "i2c lib found and set by user" true)
+	else()
+		set_with_reason(plugin/i2c "i2c lib found but not set by user" false)
 	endif(USE_I2C)
 endif(HAVE_I2C_DEV)
 

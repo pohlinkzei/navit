@@ -1,3 +1,21 @@
+/**
+ * Navit, a modular navigation system.
+ * Copyright (C) 2005-2016 Navit Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
+ */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -8,6 +26,43 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
+
+#include <math.h>
+
+#include <glib.h>
+#include <time.h>
+
+
+#include <string.h>
+#include <errno.h>
+
+#include "config.h"
+#include "config_.h"
+#include "navit.h"
+#include "coord.h"
+#include "point.h"
+#include "plugin.h"
+#include "debug.h"
+#include "item.h"
+#include "xmlconfig.h"
+#include "attr.h"
+#include "layout.h"
+#include "navigation.h"
+#include "command.h"
+#include "callback.h"
+#include "graphics.h"
+#include "track.h"
+#include "vehicle.h"
+#include "vehicleprofile.h"
+#include "map.h"
+#include "event.h"
+#include "mapset.h"
+#include "osd.h"
+#include "route.h"
+#include "search.h"
+#include "callback.h"
+#include "gui.h"
+#include "util.h"
 
 
 
@@ -23,6 +78,11 @@ typedef unsigned short int uint16_t;
 typedef signed char int8_t;
 typedef signed short int int16_t;
 
+struct i2c{
+	struct navit *nav;
+    unsigned char addr[10];
+    int device;
+};
 
 typedef struct txdataLSG{
 	bool AL;
@@ -826,45 +886,62 @@ void test_i2c(int device, uint8_t* addr, uint8_t addr_size){
 // MAIN
 ///////////////////////////////////////////////////////////////////////////
 
-int i2c_main(void){
-	int device;
-	//uint8_t i, id_ABC;
-	init_i2c_data();
-	printf("I2C Test\n");
-	device = open_i2c("/dev/i2c-1");
-	check_ioctl(device);
-	scan_i2c_bus(device);
-	//id_ABC = calculateID("ABC");
-	uint8_t addr[5];
-	printf("MFA: 0x%02x\n", calculateID("MFA"));
-	addr[0] = calculateID("MFA");
-	printf("PWM: 0x%02x\n", calculateID("PWM"));
-	addr[1] = calculateID("PWM");
-	printf("ABC: 0x%02x\n", calculateID("ABC"));
-	addr[2] = calculateID("ABC");
-	printf("WFS: 0x%02x\n", calculateID("WFS"));
-	addr[3] = calculateID("WFS");
-	printf("LSG: 0x%02x\n", calculateID("LSG"));
-	addr[4] = calculateID("LSG");
-	//printf("%i", sizeof(uint8_t));
+static void 
+i2c_main(struct i2c *this, struct navit *nav){
+	
+	//pTODO: init i2c data types
 	tx_pwm->pwm_freq = 32000;
 	tx_pwm->cal_temperature = 1;
 	tx_pwm->cal_voltage = 1;
 	tx_pwm->time_value = 30;
 	tx_pwm->water_value = 35;
 	while(1){
-		select_slave(device, addr[2]);
-		pwm_rx_task(device);
+		select_slave(this->device, this->addr[2]);
+		pwm_rx_task(this->device);
 		getchar();
-		pwm_tx_task(device);
+		pwm_tx_task(this->device);
 		getchar();
 		
 	}
-	return 0;
+	return;
 }
+
+static void 
+i2c_init(struct i2c *this, struct navit *nav)
+{
+	dbg(lvl_error, "i2c_init\n");
+	this->nav=nav;
+
+	init_i2c_data();
+	printf("I2C Test\n");
+	this->device = open_i2c("/dev/i2c-1");
+	check_ioctl(this->device);
+	scan_i2c_bus(this->device);
+
+	uint8_t addr[5];
+	printf("MFA: 0x%02x\n", calculateID("MFA"));
+	this->addr[0] = calculateID("MFA");
+	printf("PWM: 0x%02x\n", calculateID("PWM"));
+	this->addr[1] = calculateID("PWM");
+	printf("ABC: 0x%02x\n", calculateID("ABC"));
+	this->addr[2] = calculateID("ABC");
+	printf("WFS: 0x%02x\n", calculateID("WFS"));
+	this->addr[3] = calculateID("WFS");
+	printf("LSG: 0x%02x\n", calculateID("LSG"));
+	this->addr[4] = calculateID("LSG");
+	navit_add_callback(nav,callback_new_attr_1(callback_cast(i2c_main),attr_graphics_ready, this));
+}
+
+
 
 void
 plugin_init(void)
 {
-	printf("hello");
+	struct attr callback; 
+	struct i2c_plugin *this=g_new0(struct i2c, 1);
+	callback.type=attr_callback;
+	callback.u.callback=callback_new_attr_1(callback_cast(i2c_init),attr_navit,this);
+	config_add_attr(config, &callback);
+	printf("hello i2c\n\n");
 }
+
