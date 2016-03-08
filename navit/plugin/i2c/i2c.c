@@ -282,6 +282,166 @@ int select_slave(int device, uint8_t addr){
 	return 1;
 }
 
+
+// Navigation_next_turn
+
+/*
+struct nav_next_turn {
+	char *test_text;
+	char *icon_src;
+	int icon_h, icon_w, active;
+	char *last_name;
+	int level;
+};
+
+static void
+osd_nav_next_turn_draw(struct osd_priv_common *opc, struct navit *navit,
+		       struct vehicle *v)
+{
+	struct nav_next_turn *this = (struct nav_next_turn *)opc->data;
+
+	struct point p;
+	int do_draw = opc->osd_item.do_draw;
+	struct navigation *nav = NULL;
+	struct map *map = NULL;
+	struct map_rect *mr = NULL;
+	struct item *item = NULL;
+	struct graphics_image *gr_image;
+	char *image;
+	char *name = "unknown";
+	int level = this->level;
+
+	if (navit)
+		nav = navit_get_navigation(navit);
+	if (nav)
+		map = navigation_get_map(nav);
+	if (map)
+		mr = map_rect_new(map, NULL);
+	if (mr)
+		while ((item = map_rect_get_item(mr))
+		       && (item->type == type_nav_position || item->type == type_nav_none || level-- > 0));
+	if (item) {
+		name = item_to_name(item->type);
+		dbg(lvl_debug, "name=%s\n", name);
+		if (this->active != 1 || this->last_name != name) {
+			this->active = 1;
+			this->last_name = name;
+			do_draw = 1;
+		}
+	} else {
+		if (this->active != 0) {
+			this->active = 0;
+			do_draw = 1;
+		}
+	}
+	if (mr)
+		map_rect_destroy(mr);
+
+	if (do_draw) {
+		osd_fill_with_bgcolor(&opc->osd_item);
+		if (this->active) {
+			image = g_strdup_printf(this->icon_src, name);
+			dbg(lvl_debug, "image=%s\n", image);
+			gr_image =
+			    graphics_image_new_scaled(opc->osd_item.gr,
+						      image, this->icon_w,
+						      this->icon_h);
+			if (!gr_image) {
+				dbg(lvl_error,"failed to load %s in %dx%d\n",image,this->icon_w,this->icon_h);
+				g_free(image);
+				image = graphics_icon_path("unknown.png");
+				gr_image =
+				    graphics_image_new_scaled(opc->
+							      osd_item.gr,
+							      image,
+							      this->icon_w,
+							      this->
+							      icon_h);
+			}
+			dbg(lvl_debug, "gr_image=%p\n", gr_image);
+			if (gr_image) {
+				p.x =
+				    (opc->osd_item.w -
+				     gr_image->width) / 2;
+				p.y =
+				    (opc->osd_item.h -
+				     gr_image->height) / 2;
+				graphics_draw_image(opc->osd_item.gr,
+						    opc->osd_item.
+						    graphic_fg, &p,
+						    gr_image);
+				graphics_image_free(opc->osd_item.gr,
+						    gr_image);
+			}
+			g_free(image);
+		}
+		graphics_draw_mode(opc->osd_item.gr, draw_mode_end);
+	}
+}
+
+static void
+osd_nav_next_turn_init(struct osd_priv_common *opc, struct navit *nav)
+{
+	osd_set_std_graphic(nav, &opc->osd_item, (struct osd_priv *)opc);
+	navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_nav_next_turn_draw), attr_position_coord_geo, opc));
+	navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_std_click), attr_button, &opc->osd_item));
+	osd_nav_next_turn_draw(opc, nav, NULL);
+}
+
+static struct osd_priv *
+osd_nav_next_turn_new(struct navit *nav, struct osd_methods *meth,
+		      struct attr **attrs)
+{
+	struct nav_next_turn *this = g_new0(struct nav_next_turn, 1);
+	struct osd_priv_common *opc = g_new0(struct osd_priv_common,1);
+	struct attr *attr;
+
+	opc->data = (void*)this;
+	opc->osd_item.rel_x = 20;
+	opc->osd_item.rel_y = -80;
+	opc->osd_item.rel_w = 70;
+	opc->osd_item.navit = nav;
+	opc->osd_item.rel_h = 70;
+	opc->osd_item.font_size = 200;
+	opc->osd_item.meth.draw = osd_draw_cast(osd_nav_next_turn_draw);
+	meth->set_attr = set_std_osd_attr;
+	osd_set_std_attr(attrs, &opc->osd_item, 0);
+
+	this->icon_w = -1;
+	this->icon_h = -1;
+	this->active = -1;
+	this->level  = 0;
+
+	attr = attr_search(attrs, NULL, attr_icon_w);
+	if (attr)
+		this->icon_w = attr->u.num;
+
+	attr = attr_search(attrs, NULL, attr_icon_h);
+	if (attr)
+		this->icon_h = attr->u.num;
+
+	attr = attr_search(attrs, NULL, attr_icon_src);
+	if (attr) {
+		struct file_wordexp *we;
+		char **array;
+		we = file_wordexp_new(attr->u.str);
+		array = file_wordexp_get_array(we);
+		this->icon_src = graphics_icon_path(array[0]);
+		file_wordexp_destroy(we);
+	} else {
+		this->icon_src = graphics_icon_path("%s_wh.svg");
+	}
+	
+	attr = attr_search(attrs, NULL, attr_level);
+	if (attr)
+		this->level=attr->u.num;
+
+	navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_nav_next_turn_init), attr_graphics_ready, opc));
+	return (struct osd_priv *) opc;
+}
+//*/
+
+
 ///////////////////////////////////////////////////////////////////////////
 // PWM 
 ///////////////////////////////////////////////////////////////////////////
