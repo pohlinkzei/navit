@@ -17,54 +17,6 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <linux/i2c-dev.h>
-
-#include <math.h>
-
-#include <glib.h>
-#include <time.h>
-
-
-#include <string.h>
-#include <errno.h>
-
-#include "config.h"
-#include "config_.h"
-#include "navit.h"
-#include "coord.h"
-#include "point.h"
-#include "plugin.h"
-#include "debug.h"
-#include "item.h"
-#include "xmlconfig.h"
-#include "attr.h"
-#include "layout.h"
-#include "navigation.h"
-#include "command.h"
-#include "callback.h"
-#include "graphics.h"
-#include "track.h"
-#include "vehicle.h"
-#include "vehicleprofile.h"
-#include "map.h"
-#include "event.h"
-#include "mapset.h"
-#include "osd.h"
-#include "route.h"
-#include "search.h"
-#include "callback.h"
-#include "gui.h"
-#include "util.h"
-
-
 #include "i2c.h"
 
 
@@ -447,7 +399,7 @@ uint8_t pwm_tx_task(int device){
 //*////////////////////////////////////////////////////////////////////////
 // MFA 
 ///////////////////////////////////////////////////////////////////////////
-//*
+/*
 uint8_t serialize_mfa_txdata(tx_mfa_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_mfa_t)){
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_mfa_t));

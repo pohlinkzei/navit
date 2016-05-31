@@ -75,7 +75,7 @@ struct connected_devices{
 	char* icon;
 	void* rx_data;
 	void* tx_data;
-}
+};
 
 typedef struct txdataLSG{
 	bool AL;
