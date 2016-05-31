@@ -82,6 +82,8 @@ struct i2c{
 	struct navit *nav;
     unsigned char addr[10];
     int device;
+    struct callback* callback;
+    int timeout;
 };
 
 typedef struct txdataLSG{
@@ -186,12 +188,14 @@ rx_mfa_t *rx_mfa;
 tx_mfa_t *tx_mfa;
 
 
+void read_i2c_frame(int device, uint8_t* data, uint8_t size);
+
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
 	uint8_t ID;
 	ID = (name[0]-48) * 3 + (name[1]-48) * 2 + (name[2]-48);
-	(ID >> 1);
-	printf("Name: %s, ID = 0x%02X\n",name, ID);
+	//ID = (ID >> 1);
+	dbg(lvl_debug,"Name: %s, ID = 0x%02X\n",name, ID);
 	return ID;
 }
 
@@ -209,7 +213,7 @@ void init_i2c_data(void){
 }
 
 uint8_t crc8(uint8_t crc, uint8_t data){
-	uint8_t i, _data;
+	uint8_t i, _data = 0;
 	_data = crc ^ data;
 	for(i=0; i<8; i++){
 		if((_data & 0x80) != 0){
@@ -219,14 +223,17 @@ uint8_t crc8(uint8_t crc, uint8_t data){
 			_data <<= 1;
 		}
 	}
+	printf(" 0x%02X",_data);
 	return _data;
 }
 
 uint8_t calculateCRC8(uint8_t crc, uint8_t* data, uint8_t len){
+	dbg(lvl_debug,"crc: %p, %i\n",data, crc);
 	while(len-->0){
-		//printf("crc: %p, %i\n",data, crc);
+		//dbg(lvl_debug,"crc: %p, %i\n",data, crc);
 		crc = crc8(crc, *data++);
 	}
+	dbg(lvl_debug,"\ncrc: %i\n",data, crc);
 	return crc;
 }
 
@@ -249,10 +256,10 @@ unsigned long check_ioctl(int device){
 		return 0;
 	}
 	if(funcs & I2C_FUNC_I2C){
-		printf("I2C_FUNC_I2C found.\n");
+		dbg(lvl_debug,"I2C_FUNC_I2C found.\n");
 	}
 	if(funcs & I2C_FUNC_SMBUS_BYTE){
-		printf("I2C_FUNC_SMBUS_BYTE found.\n");
+		dbg(lvl_debug,"I2C_FUNC_SMBUS_BYTE found.\n");
 	}	
 	return funcs;
 }
@@ -261,11 +268,11 @@ void scan_i2c_bus(int device){
 	int port, res;
 	for(port = 0; port < 127; port++){
 		if(ioctl(device, I2C_SLAVE, port) < 0){
-			printf("Error: No I2C_SLAVE found!\n");
+			dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
 		}else{
 			res = i2c_smbus_read_byte(device);
 			if (res >= 0){
-				printf("I2C device found at 0x%02x, val = 0x%02x\n",port, res);
+				dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
 			}
 		}
 	}
@@ -273,10 +280,10 @@ void scan_i2c_bus(int device){
 
 int select_slave(int device, uint8_t addr){
 	int res;
-	printf("Probe Address 0x%02X: %i\n", addr, ioctl(device, I2C_SLAVE, addr));
+	dbg(lvl_debug,"Probe Address 0x%02X: %i\n", addr, ioctl(device, I2C_SLAVE, addr));
 	res = i2c_smbus_read_byte_data(device, 0);
 	if (res >= 0){
-		printf("I2C device found at 0x%02x, val = 0x%02x\n",addr, res);
+		dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",addr, res);
 		return 0;
 	}
 	return 1;
@@ -340,7 +347,7 @@ osd_nav_next_turn_draw(struct osd_priv_common *opc, struct navit *navit,
 	if (do_draw) {
 		osd_fill_with_bgcolor(&opc->osd_item);
 		if (this->active) {
-			image = g_strdup_printf(this->icon_src, name);
+			image = g_strdup_dbg(lvl_debug,this->icon_src, name);
 			dbg(lvl_debug, "image=%s\n", image);
 			gr_image =
 			    graphics_image_new_scaled(opc->osd_item.gr,
@@ -445,21 +452,21 @@ osd_nav_next_turn_new(struct navit *nav, struct osd_methods *meth,
 ///////////////////////////////////////////////////////////////////////////
 // PWM 
 ///////////////////////////////////////////////////////////////////////////
-/*
+//*
 uint8_t serialize_pwm_txdata(tx_pwm_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_pwm_t)){
-		printf("size: %i, struct: %i\n",size,sizeof(tx_pwm_t));
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_pwm_t));
 		return 0;
 	}
-	printf("\nserialize_pwm_txdata\n");
-	printf("PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\n",tx->pwm_freq, tx->cal_temperature, tx->cal_voltage, tx->water_value, tx->time_value);
+	dbg(lvl_debug,"\nserialize_pwm_txdata\n");
+	dbg(lvl_debug,"PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\n",tx->pwm_freq, tx->cal_temperature, tx->cal_voltage, tx->water_value, tx->time_value);
 		buffer[0] = (uint8_t) ((tx->pwm_freq & 0xFF00) >> 8);
 	buffer[1] = (uint8_t) (tx->pwm_freq & 0x00FF);
 	buffer[2] = tx->cal_temperature;
 	buffer[3] = tx->cal_voltage;
 	buffer[4] = tx->water_value;
 	buffer[5] = tx->time_value;
-	printf("PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug,"PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
 	return 1;
 }
 
@@ -467,8 +474,8 @@ uint8_t serialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buffer
 	if(size != sizeof(rx_pwm_t)){
 		return 0;
 	}
-	printf("\nserialize_pwm_rxdata\n");
-	printf("PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
+	dbg(lvl_debug,"\nserialize_pwm_rxdata\n");
+	dbg(lvl_debug,"PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
 	buffer[0] = (uint8_t) ((rx->pwm_freq & 0xFF00) >> 8);
 	buffer[1] = (uint8_t) (rx->pwm_freq & 0x00FF);
 	buffer[2] = rx->cal_temperature;
@@ -479,7 +486,7 @@ uint8_t serialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buffer
 	buffer[7] = (uint8_t) (rx->vbat & 0x00FF);
 	buffer[8] = rx->water_temp;
 	buffer[9] = rx->fet_temp;
-	printf("PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	
 	return 1;
 }
@@ -488,8 +495,8 @@ uint8_t deserialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buff
 	if(size != sizeof(rx_pwm_t)){
 		return 0;
 	}
-	printf("\ndeserialize_pwm_rxdata\n");
-	printf("PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\ndeserialize_pwm_rxdata\n");
+	dbg(lvl_debug,"PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	rx->pwm_freq = ((uint16_t) (buffer[0]) << 8) + buffer[1];
 	rx->cal_temperature = buffer[2];
 	rx->cal_voltage = buffer[3];
@@ -498,7 +505,7 @@ uint8_t deserialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buff
 	rx->vbat = ((uint16_t) (buffer[6]) << 8) + buffer[7];
 	rx->water_temp = buffer[8];
 	rx->fet_temp = buffer[9];
-	printf("PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
+	dbg(lvl_debug,"PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
 	return 1;
 }
 
@@ -506,29 +513,29 @@ uint8_t pwm_rx_task(int device){
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx_pwm_t);
 	uint8_t i2crxdata[rx_size+1];
-	printf("Read i2c\n");
+	dbg(lvl_debug,"Read i2c\n");
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
 	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	printf("// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
+	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
 	if(rx_crc == i2crxdata[rx_size]){
-		printf("//crc is correct\n");
+		dbg(lvl_debug,"//crc is correct\n");
 		uint8_t ser_rx[rx_size];
 		
 		if(serialize_pwm_rxdata(rx_pwm, rx_size, ser_rx)){
-			printf("// check if new data differs from current data object\n");
+			dbg(lvl_debug,"// check if new data differs from current data object\n");
 			uint8_t ok = 0;
 			for(i=0; i<rx_size; i++){
-				printf("check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
+				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
 				if(i2crxdata[i] != ser_rx[i]) ok = 1;
 			}
 			if(ok){
-				printf("//we got new data -> replace the old object \n");
+				dbg(lvl_debug,"//we got new data -> replace the old object \n");
 				if(!deserialize_pwm_rxdata(rx_pwm, rx_size, i2crxdata)){
-					printf("failed to replace\n");
+					dbg(lvl_debug,"failed to replace\n");
 					return 1;
 				}else{
-					printf("// everything went fine -> clean the buffer\n");
+					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
 					for(i=0; i <= rx_size; i++){
 						i2crxdata[i] = 0;
 					}
@@ -536,7 +543,7 @@ uint8_t pwm_rx_task(int device){
 			}else return 1;
 		}else return 1;
 	}else return 1;
-	printf("// end of rx data procession\n");
+	dbg(lvl_debug,"// end of rx data procession\n");
 	return 0;
 	
 }	
@@ -544,16 +551,16 @@ uint8_t pwm_tx_task(int device){
 	uint8_t i;
 	uint8_t tx_size = sizeof(tx_pwm_t);	
 	uint8_t i2ctxdata[tx_size+1];	
-	printf("// serialize tx object %i\n", tx_size);
+	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(serialize_pwm_txdata(tx_pwm, tx_size, i2ctxdata)){
-		printf("//calculate CRC and append to i2ctxdata\n");
+		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
 		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
 		for(i=0;i<tx_size;i++){
 			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			printf("Write %i: 0x%02X\n", i, i2ctxdata[i]);
+			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
 		}
 		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		printf("Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
+		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
 	}else return 1;
 	return 0;
 }
@@ -565,10 +572,10 @@ uint8_t pwm_tx_task(int device){
 /*
 uint8_t serialize_mfa_txdata(tx_mfa_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_mfa_t)){
-		printf("size: %i, struct: %i\n",size,sizeof(tx_mfa_t));
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_mfa_t));
 		return 0;
 	}
-	printf("\nserialize_mfa_txdata\n");
+	dbg(lvl_debug,"\nserialize_mfa_txdata\n");
 	uint8_t i;
 	for(i=0;i<32;i++){
 		buffer[i] = rx->radio_text[i];
@@ -583,11 +590,11 @@ uint8_t serialize_mfa_txdata(tx_mfa_t *tx, uint8_t size, volatile uint8_t buffer
 	buffer[38] = rx->cal_voltage;
 	buffer[39] = rx->cal_oil_temperature;
 	buffer[40] = rx->cal_consumption;	
-	printf("mfa: ");
+	dbg(lvl_debug,"mfa: ");
 	for(i=0;i<size; i++){
-		printf("0x%02X ",buffer[i]);
+		dbg(lvl_debug,"0x%02X ",buffer[i]);
 	}
-	printf("\n");
+	dbg(lvl_debug,"\n");
 	return 1;
 }
 
@@ -595,7 +602,7 @@ uint8_t serialize_mfa_rxdata(rx_mfa_t *rx, uint8_t size, volatile uint8_t buffer
 	if(size != sizeof(rx_mfa_t)){
 		return 0;
 	}
-	printf("\nserialize_mfa_rxdata\n");
+	dbg(lvl_debug,"\nserialize_mfa_rxdata\n");
 	uint8_t i;
 	for(i=0;i<32;i++){
 		buffer[i] = rx->radio_text[i];
@@ -629,11 +636,11 @@ uint8_t serialize_mfa_rxdata(rx_mfa_t *rx, uint8_t size, volatile uint8_t buffer
 	buffer[56] = ((uint8_t) ((rx->rpm & 0xFF00) >> 8);
 	buffer[57] = ((uint8_t) ((rx->rpm & 0x00FF));
 	
-	printf("mfa: ");
+	dbg(lvl_debug,"mfa: ");
 	for(i=0;i<size; i++){
-		printf("0x%02X ",buffer[i]);
+		dbg(lvl_debug,"0x%02X ",buffer[i]);
 	}
-	printf("\n");
+	dbg(lvl_debug,"\n");
 	return 1;
 }
 
@@ -641,12 +648,12 @@ uint8_t deserialize_mfa_rxdata(rx_mfa_t *rx, uint8_t size, volatile uint8_t buff
 	if(size != sizeof(rx_mfa_t)){
 		return 0;
 	}
-	printf("\ndeserialize_mfa_rxdata\n");
-	printf("mfa: ");
+	dbg(lvl_debug,"\ndeserialize_mfa_rxdata\n");
+	dbg(lvl_debug,"mfa: ");
 	for(i=0;i<size; i++){
-		printf("0x%02X ",buffer[i]);
+		dbg(lvl_debug,"0x%02X ",buffer[i]);
 	}
-	printf("\n");
+	dbg(lvl_debug,"\n");
 	
 	for(i=0;i<32;i++){
 		rx->radio_text[i] = buffer[i];
@@ -677,29 +684,29 @@ uint8_t mfa_rx_task(int device){
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx_mfa_t);
 	uint8_t i2crxdata[rx_size+1];
-	printf("Read i2c\n");
+	dbg(lvl_debug,"Read i2c\n");
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
 	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	printf("// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
+	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
 	if(rx_crc == i2crxdata[rx_size]){
-		printf("//crc is correct\n");
+		dbg(lvl_debug,"//crc is correct\n");
 		uint8_t ser_rx[rx_size];
 		
 		if(serialize_mfa_rxdata(rx_mfa, rx_size, ser_rx)){
-			printf("// check if new data differs from current data object\n");
+			dbg(lvl_debug,"// check if new data differs from current data object\n");
 			uint8_t ok = 0;
 			for(i=0; i<rx_size; i++){
-				printf("check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
+				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
 				if(i2crxdata[i] != ser_rx[i]) ok = 1;
 			}
 			if(ok){
-				printf("//we got new data -> replace the old object \n");
+				dbg(lvl_debug,"//we got new data -> replace the old object \n");
 				if(!deserialize_mfa_rxdata(rx_mfa, rx_size, i2crxdata)){
-					printf("failed to replace\n");
+					dbg(lvl_debug,"failed to replace\n");
 					return 1;
 				}else{
-					printf("// everything went fine -> clean the buffer\n");
+					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
 					for(i=0; i <= rx_size; i++){
 						i2crxdata[i] = 0;
 					}
@@ -707,7 +714,7 @@ uint8_t mfa_rx_task(int device){
 			}else return 1;
 		}else return 1;
 	}else return 1;
-	printf("// end of rx data procession\n");
+	dbg(lvl_debug,"// end of rx data procession\n");
 	return 0;
 	
 }	
@@ -715,16 +722,16 @@ uint8_t mfa_tx_task(int device){
 	uint8_t i;
 	uint8_t tx_size = sizeof(tx_mfa_t);	
 	uint8_t i2ctxdata[tx_size+1];	
-	printf("// serialize tx object %i\n", tx_size);
+	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(serialize_mfa_txdata(tx_mfa, tx_size, i2ctxdata)){
-		printf("//calculate CRC and append to i2ctxdata\n");
+		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
 		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
 		for(i=0;i<tx_size;i++){
 			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			printf("Write %i: 0x%02X\n", i, i2ctxdata[i]);
+			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
 		}
 		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		printf("Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
+		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
 	}else return 1;
 	return 0;
 }
@@ -735,11 +742,11 @@ uint8_t mfa_tx_task(int device){
 /*
 uint8_t serialize_lsg_txdata(tx_lsg_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_lsg_t)){
-		printf("size: %i, struct: %i\n",size,sizeof(tx_lsg_t));
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_lsg_t));
 		return 0;
 	}
-	printf("\nserialize_lsg_txdata\n");
-	printf("lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug,"\nserialize_lsg_txdata\n");
+	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
 	return 1;
 }
 
@@ -747,8 +754,8 @@ uint8_t serialize_lsg_rxdata(rx_lsg_t *rx, uint8_t size, volatile uint8_t buffer
 	if(size != sizeof(rx_lsg_t)){
 		return 0;
 	}
-	printf("\nserialize_lsg_rxdata\n");
-	printf("lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\nserialize_lsg_rxdata\n");
+	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	
 	return 1;
 }
@@ -757,8 +764,8 @@ uint8_t deserialize_lsg_rxdata(rx_lsg_t *rx, uint8_t size, volatile uint8_t buff
 	if(size != sizeof(rx_lsg_t)){
 		return 0;
 	}
-	printf("\ndeserialize_lsg_rxdata\n");
-	printf("lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\ndeserialize_lsg_rxdata\n");
+	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
 
@@ -766,29 +773,29 @@ uint8_t lsg_rx_task(int device){
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx_lsg_t);
 	uint8_t i2crxdata[rx_size+1];
-	printf("Read i2c\n");
+	dbg(lvl_debug,"Read i2c\n");
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
 	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	printf("// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
+	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
 	if(rx_crc == i2crxdata[rx_size]){
-		printf("//crc is correct\n");
+		dbg(lvl_debug,"//crc is correct\n");
 		uint8_t ser_rx[rx_size];
 		
 		if(serialize_lsg_rxdata(rx_lsg, rx_size, ser_rx)){
-			printf("// check if new data differs from current data object\n");
+			dbg(lvl_debug,"// check if new data differs from current data object\n");
 			uint8_t ok = 0;
 			for(i=0; i<rx_size; i++){
-				printf("check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
+				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
 				if(i2crxdata[i] != ser_rx[i]) ok = 1;
 			}
 			if(ok){
-				printf("//we got new data -> replace the old object \n");
+				dbg(lvl_debug,"//we got new data -> replace the old object \n");
 				if(!deserialize_lsg_rxdata(rx_lsg, rx_size, i2crxdata)){
-					printf("failed to replace\n");
+					dbg(lvl_debug,"failed to replace\n");
 					return 1;
 				}else{
-					printf("// everything went fine -> clean the buffer\n");
+					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
 					for(i=0; i <= rx_size; i++){
 						i2crxdata[i] = 0;
 					}
@@ -796,7 +803,7 @@ uint8_t lsg_rx_task(int device){
 			}else return 1;
 		}else return 1;
 	}else return 1;
-	printf("// end of rx data procession\n");
+	dbg(lvl_debug,"// end of rx data procession\n");
 	return 0;
 	
 }	
@@ -804,16 +811,16 @@ uint8_t lsg_tx_task(int device){
 	uint8_t i;
 	uint8_t tx_size = sizeof(tx_lsg_t);	
 	uint8_t i2ctxdata[tx_size+1];	
-	printf("// serialize tx object %i\n", tx_size);
+	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(serialize_lsg_txdata(tx_lsg, tx_size, i2ctxdata)){
-		printf("//calculate CRC and append to i2ctxdata\n");
+		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
 		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
 		for(i=0;i<tx_size;i++){
 			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			printf("Write %i: 0x%02X\n", i, i2ctxdata[i]);
+			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
 		}
 		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		printf("Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
+		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
 	}else return 1;
 	return 0;
 }
@@ -824,11 +831,11 @@ uint8_t lsg_tx_task(int device){
 /*
 uint8_t serialize_wfs_txdata(tx_wfs_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_wfs_t)){
-		printf("size: %i, struct: %i\n",size,sizeof(tx_wfs_t));
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_wfs_t));
 		return 0;
 	}
-	printf("\nserialize_wfs_txdata\n");
-	printf("wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug,"\nserialize_wfs_txdata\n");
+	dbg(lvl_debug,"wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
 	return 1;
 }
 
@@ -836,8 +843,8 @@ uint8_t serialize_wfs_rxdata(rx_wfs_t *rx, uint8_t size, volatile uint8_t buffer
 	if(size != sizeof(rx_wfs_t)){
 		return 0;
 	}
-	printf("\nserialize_wfs_rxdata\n");
-	printf("wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\nserialize_wfs_rxdata\n");
+	dbg(lvl_debug,"wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	
 	return 1;
 }
@@ -846,8 +853,8 @@ uint8_t deserialize_wfs_rxdata(rx_wfs_t *rx, uint8_t size, volatile uint8_t buff
 	if(size != sizeof(rx_wfs_t)){
 		return 0;
 	}
-	printf("\ndeserialize_wfs_rxdata\n");
-	printf("wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\ndeserialize_wfs_rxdata\n");
+	dbg(lvl_debug,"wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
 
@@ -855,29 +862,29 @@ uint8_t wfs_rx_task(int device){
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx_wfs_t);
 	uint8_t i2crxdata[rx_size+1];
-	printf("Read i2c\n");
+	dbg(lvl_debug,"Read i2c\n");
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
 	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	printf("// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
+	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
 	if(rx_crc == i2crxdata[rx_size]){
-		printf("//crc is correct\n");
+		dbg(lvl_debug,"//crc is correct\n");
 		uint8_t ser_rx[rx_size];
 		
 		if(serialize_wfs_rxdata(rx_wfs, rx_size, ser_rx)){
-			printf("// check if new data differs from current data object\n");
+			dbg(lvl_debug,"// check if new data differs from current data object\n");
 			uint8_t ok = 0;
 			for(i=0; i<rx_size; i++){
-				printf("check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
+				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
 				if(i2crxdata[i] != ser_rx[i]) ok = 1;
 			}
 			if(ok){
-				printf("//we got new data -> replace the old object \n");
+				dbg(lvl_debug,"//we got new data -> replace the old object \n");
 				if(!deserialize_wfs_rxdata(rx_wfs, rx_size, i2crxdata)){
-					printf("failed to replace\n");
+					dbg(lvl_debug,"failed to replace\n");
 					return 1;
 				}else{
-					printf("// everything went fine -> clean the buffer\n");
+					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
 					for(i=0; i <= rx_size; i++){
 						i2crxdata[i] = 0;
 					}
@@ -885,7 +892,7 @@ uint8_t wfs_rx_task(int device){
 			}else return 1;
 		}else return 1;
 	}else return 1;
-	printf("// end of rx data procession\n");
+	dbg(lvl_debug,"// end of rx data procession\n");
 	return 0;
 	
 }	
@@ -893,16 +900,16 @@ uint8_t wfs_tx_task(int device){
 	uint8_t i;
 	uint8_t tx_size = sizeof(tx_wfs_t);	
 	uint8_t i2ctxdata[tx_size+1];	
-	printf("// serialize tx object %i\n", tx_size);
+	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(serialize_wfs_txdata(tx_wfs, tx_size, i2ctxdata)){
-		printf("//calculate CRC and append to i2ctxdata\n");
+		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
 		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
 		for(i=0;i<tx_size;i++){
 			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			printf("Write %i: 0x%02X\n", i, i2ctxdata[i]);
+			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
 		}
 		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		printf("Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
+		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
 	}else return 1;
 	return 0;
 }
@@ -913,11 +920,11 @@ uint8_t wfs_tx_task(int device){
 /*
 uint8_t serialize_v2v_txdata(tx_v2v_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_v2v_t)){
-		printf("size: %i, struct: %i\n",size,sizeof(tx_v2v_t));
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_v2v_t));
 		return 0;
 	}
-	printf("\nserialize_v2v_txdata\n");
-	printf("v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug,"\nserialize_v2v_txdata\n");
+	dbg(lvl_debug,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
 	return 1;
 }
 
@@ -925,8 +932,8 @@ uint8_t serialize_v2v_rxdata(rx_v2v_t *rx, uint8_t size, volatile uint8_t buffer
 	if(size != sizeof(rx_v2v_t)){
 		return 0;
 	}
-	printf("\nserialize_v2v_rxdata\n");
-	printf("v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\nserialize_v2v_rxdata\n");
+	dbg(lvl_debug,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	
 	return 1;
 }
@@ -935,8 +942,8 @@ uint8_t deserialize_v2v_rxdata(rx_v2v_t *rx, uint8_t size, volatile uint8_t buff
 	if(size != sizeof(rx_v2v_t)){
 		return 0;
 	}
-	printf("\ndeserialize_v2v_rxdata\n");
-	printf("v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"\ndeserialize_v2v_rxdata\n");
+	dbg(lvl_debug,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
 
@@ -944,29 +951,29 @@ uint8_t v2v_rx_task(int device){
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx_v2v_t);
 	uint8_t i2crxdata[rx_size+1];
-	printf("Read i2c\n");
+	dbg(lvl_debug,"Read i2c\n");
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
 	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	printf("// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
+	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
 	if(rx_crc == i2crxdata[rx_size]){
-		printf("//crc is correct\n");
+		dbg(lvl_debug,"//crc is correct\n");
 		uint8_t ser_rx[rx_size];
 		
 		if(serialize_v2v_rxdata(rx_v2v, rx_size, ser_rx)){
-			printf("// check if new data differs from current data object\n");
+			dbg(lvl_debug,"// check if new data differs from current data object\n");
 			uint8_t ok = 0;
 			for(i=0; i<rx_size; i++){
-				printf("check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
+				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
 				if(i2crxdata[i] != ser_rx[i]) ok = 1;
 			}
 			if(ok){
-				printf("//we got new data -> replace the old object \n");
+				dbg(lvl_debug,"//we got new data -> replace the old object \n");
 				if(!deserialize_v2v_rxdata(rx_v2v, rx_size, i2crxdata)){
-					printf("failed to replace\n");
+					dbg(lvl_debug,"failed to replace\n");
 					return 1;
 				}else{
-					printf("// everything went fine -> clean the buffer\n");
+					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
 					for(i=0; i <= rx_size; i++){
 						i2crxdata[i] = 0;
 					}
@@ -974,7 +981,7 @@ uint8_t v2v_rx_task(int device){
 			}else return 1;
 		}else return 1;
 	}else return 1;
-	printf("// end of rx data procession\n");
+	dbg(lvl_debug,"// end of rx data procession\n");
 	return 0;
 	
 }	
@@ -982,16 +989,16 @@ uint8_t v2v_tx_task(int device){
 	uint8_t i;
 	uint8_t tx_size = sizeof(tx_v2v_t);	
 	uint8_t i2ctxdata[tx_size+1];	
-	printf("// serialize tx object %i\n", tx_size);
+	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(serialize_v2v_txdata(tx_v2v, tx_size, i2ctxdata)){
-		printf("//calculate CRC and append to i2ctxdata\n");
+		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
 		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
 		for(i=0;i<tx_size;i++){
 			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			printf("Write %i: 0x%02X\n", i, i2ctxdata[i]);
+			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
 		}
 		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		printf("Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
+		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
 	}else return 1;
 	return 0;
 }
@@ -1005,13 +1012,14 @@ uint8_t v2v_tx_task(int device){
 
 void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 	uint8_t i;
+	dbg(lvl_debug,"Read %i bytes\n", size);
 	for(i=0;i<size;i++){	
 		if(i==0){
 			data[i] = i2c_smbus_read_byte_data(device, i);
 		}else{
 			data[i] = i2c_smbus_read_byte(device);
 		}
-		printf("Read %i: 0x%02X 0x%02X\n", i, (uint8_t) data[i], device);
+		dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) data[i], device);
 	}
 }
 
@@ -1019,7 +1027,7 @@ void test_i2c(int device, uint8_t* addr, uint8_t addr_size){
 	uint8_t j,i;
 	for(j=0; j<addr_size; j++){
 		if(select_slave(device, addr[j])){
-			printf("Can't open port: 0x%02X\n",addr[j]);
+			dbg(lvl_error,"Can't open port: 0x%02X\n",addr[j]);
 
 		}else{
 			for(i=0; i<6; i++){
@@ -1028,12 +1036,12 @@ void test_i2c(int device, uint8_t* addr, uint8_t addr_size){
 				}else{
 					result[i] = i2c_smbus_read_byte(device);
 				}
-				printf("Read %i: 0x%02X 0x%02X\n", i, (uint8_t) result[i], device);
+				dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) result[i], device);
 			}
 		
 			for(i=0; i<6; i++){
 					i2c_smbus_write_byte_data(device, i, x[i]);
-					printf("Write %i: 0x%02X 0x%02X\n", i, x[i], device);
+					dbg(lvl_debug,"Write %i: 0x%02X 0x%02X\n", i, x[i], device);
 			}
 			for(i=0; i<6; i++){
 				x[i]=result[i];
@@ -1041,28 +1049,50 @@ void test_i2c(int device, uint8_t* addr, uint8_t addr_size){
 		}
 	}
 }
+/*
+void pwm_tx_task(int device){
+	dbg(lvl_debug, "pwm_tx_task\n");
+}
 
+void pwm_rx_task(int device){
+	dbg(lvl_debug, "pwm_rx_task\n");
+}
+*/
 ///////////////////////////////////////////////////////////////////////////
 // MAIN
 ///////////////////////////////////////////////////////////////////////////
 
 static void 
+i2c_task(struct i2c *this){
+	select_slave(this->device, this->addr[2]);
+	uint8_t size = sizeof(this->addr); 
+	uint8_t i;
+	//for(i=0; i<size;i++){
+		dbg(lvl_error, "%i\n\n\n ", i);
+		pwm_rx_task(this->device);
+		//getchar();
+		
+		tx_pwm->pwm_freq += 500;
+		if(tx_pwm->pwm_freq > 65000) tx_pwm->pwm_freq = 1000;
+		
+		pwm_tx_task(this->device);
+		//getchar();
+	//}
+}
+
+static void 
 i2c_main(struct i2c *this, struct navit *nav){
 	
+	this->callback = callback_new_1(callback_cast(i2c_task), this);
+	this->timeout = event_add_timeout(5000, 1, this->callback);
+	
 	//pTODO: init i2c data types
-	tx_pwm->pwm_freq = 32000;
-	tx_pwm->cal_temperature = 1;
-	tx_pwm->cal_voltage = 1;
-	tx_pwm->time_value = 30;
+	tx_pwm->pwm_freq = 10000;
+	tx_pwm->cal_temperature = 5;
+	tx_pwm->cal_voltage = 5;
+	tx_pwm->time_value = 10;
 	tx_pwm->water_value = 35;
-	while(1){
-		select_slave(this->device, this->addr[2]);
-		pwm_rx_task(this->device);
-		getchar();
-		pwm_tx_task(this->device);
-		getchar();
-		
-	}
+	
 	return;
 }
 
@@ -1073,21 +1103,21 @@ i2c_init(struct i2c *this, struct navit *nav)
 	this->nav=nav;
 
 	init_i2c_data();
-	printf("I2C Test\n");
+	dbg(lvl_debug,"I2C Test\n");
 	this->device = open_i2c("/dev/i2c-1");
 	check_ioctl(this->device);
 	scan_i2c_bus(this->device);
 
 	uint8_t addr[5];
-	printf("MFA: 0x%02x\n", calculateID("MFA"));
+	dbg(lvl_debug,"MFA: 0x%02x\n", calculateID("MFA"));
 	this->addr[0] = calculateID("MFA");
-	printf("PWM: 0x%02x\n", calculateID("PWM"));
+	dbg(lvl_debug,"PWM: 0x%02x\n", calculateID("PWM"));
 	this->addr[1] = calculateID("PWM");
-	printf("ABC: 0x%02x\n", calculateID("ABC"));
+	dbg(lvl_debug,"ABC: 0x%02x\n", calculateID("ABC"));
 	this->addr[2] = calculateID("ABC");
-	printf("WFS: 0x%02x\n", calculateID("WFS"));
+	dbg(lvl_debug,"WFS: 0x%02x\n", calculateID("WFS"));
 	this->addr[3] = calculateID("WFS");
-	printf("LSG: 0x%02x\n", calculateID("LSG"));
+	dbg(lvl_debug,"LSG: 0x%02x\n", calculateID("LSG"));
 	this->addr[4] = calculateID("LSG");
 	navit_add_callback(nav,callback_new_attr_1(callback_cast(i2c_main),attr_graphics_ready, this));
 }
@@ -1102,6 +1132,6 @@ plugin_init(void)
 	callback.type=attr_callback;
 	callback.u.callback=callback_new_attr_1(callback_cast(i2c_init),attr_navit,this);
 	config_add_attr(config, &callback);
-	printf("hello i2c\n\n");
+	dbg(lvl_debug,"hello i2c\n\n");
 }
 
