@@ -65,130 +65,8 @@
 #include "util.h"
 
 
+#include "i2c.h"
 
-#define CRC_POLYNOME 0xAB
-char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
-char result[6] = {0,};
-unsigned char i2ctxdata[128] = {0,};
-unsigned char i2crxdata[128] = {0,};
-
-
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef signed char int8_t;
-typedef signed short int int16_t;
-
-struct i2c{
-	struct navit *nav;
-    unsigned char addr[10];
-    int device;
-    struct callback* callback;
-    int timeout;
-};
-
-typedef struct txdataLSG{
-	bool AL;
-	bool TFL;
-	bool ZV;
-	bool LED;
-	uint8_t time_in;
-	uint8_t time_out;
-}tx_lsg_t;
-	
-typedef struct rxdataLSG{
-	bool AL;
-	bool TFL;
-	bool ZV;
-	bool LED;
-	uint8_t time_in;
-	uint8_t time_out;
-}rx_lsg_t;
-
-typedef struct txdataV2V{
-	uint8_t time;
-	uint8_t temperature;
-}tx_v2v_t;
-	
-typedef struct rxdataV2V{
-	uint8_t time;
-	uint8_t temperature;
-}rx_v2v_t;
-
-typedef struct txdataWFS{
-	uint8_t time;
-}tx_wfs_t;
-	
-typedef struct rxdataWFS{
-	uint8_t time;
-}rx_wfs_t;
-
-typedef struct txdataMFA{
-	uint8_t radio_text[32];
-	uint8_t navigation_next_turn;
-	long distance_to_next_turn;
-	//navigation active?
-	uint8_t cal_water_temperature;
-	uint8_t cal_voltage;
-	uint8_t cal_oil_temperature;
-	uint8_t cal_consumption;	
-	// other values from pwm module?
-}tx_mfa_t;
-	
-typedef struct rxdataMFA{
-	uint8_t radio_text[32];
-	uint8_t navigation_next_turn;
-	long distance_to_next_turn;
-	//navigation active?
-	uint8_t cal_water_temperature;
-	uint8_t cal_voltage;
-	uint8_t cal_oil_temperature;
-	uint8_t cal_consumption;
-	// read only
-	uint16_t voltage;
-	int8_t water_temperature;
-	int8_t ambient_temperature;
-	int8_t oil_temperature;
-	int consumption;
-	int average_consumption;
-	int range;
-	int speed;
-	int average_speed;
-	int rpm;
-}rx_mfa_t;
-
-typedef struct txdataPWM{
-	uint16_t pwm_freq;
-	uint8_t cal_temperature;
-	uint8_t cal_voltage;
-	uint8_t water_value;
-	uint8_t time_value;
-}tx_pwm_t;
-	
-typedef struct rxdataPWM{
-	uint16_t pwm_freq;
-	uint8_t cal_temperature;
-	uint8_t cal_voltage;
-	uint8_t water_value;
-	uint8_t time_value;
-	uint16_t vbat;
-	uint8_t water_temp;
-	uint8_t fet_temp;
-}rx_pwm_t;
-
-
-rx_lsg_t *rx_lsg;
-tx_lsg_t *tx_lsg;
-rx_pwm_t *rx_pwm;
-tx_pwm_t *tx_pwm;
-rx_wfs_t *rx_wfs;
-tx_wfs_t *tx_wfs;
-rx_v2v_t *rx_v2v;
-tx_v2v_t *tx_v2v;
-rx_mfa_t *rx_mfa;
-tx_mfa_t *tx_mfa;
-
-
-void read_i2c_frame(int device, uint8_t* data, uint8_t size);
 
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
@@ -569,7 +447,7 @@ uint8_t pwm_tx_task(int device){
 //*////////////////////////////////////////////////////////////////////////
 // MFA 
 ///////////////////////////////////////////////////////////////////////////
-/*
+//*
 uint8_t serialize_mfa_txdata(tx_mfa_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_mfa_t)){
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_mfa_t));
@@ -739,7 +617,7 @@ uint8_t mfa_tx_task(int device){
 //*////////////////////////////////////////////////////////////////////////
 // LSG 
 ///////////////////////////////////////////////////////////////////////////
-/*
+//*
 uint8_t serialize_lsg_txdata(tx_lsg_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_lsg_t)){
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_lsg_t));
@@ -917,7 +795,7 @@ uint8_t wfs_tx_task(int device){
 //*////////////////////////////////////////////////////////////////////////
 // V2V 
 ///////////////////////////////////////////////////////////////////////////
-/*
+//*
 uint8_t serialize_v2v_txdata(tx_v2v_t *tx, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_v2v_t)){
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_v2v_t));
@@ -1072,8 +950,10 @@ i2c_task(struct i2c *this){
 		pwm_rx_task(this->device);
 		//getchar();
 		
+		
+		
 		tx_pwm->pwm_freq += 500;
-		if(tx_pwm->pwm_freq > 65000) tx_pwm->pwm_freq = 1000;
+		if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
 		
 		pwm_tx_task(this->device);
 		//getchar();
@@ -1083,8 +963,13 @@ i2c_task(struct i2c *this){
 static void 
 i2c_main(struct i2c *this, struct navit *nav){
 	
+	//
+	
+	
+	
+	
 	this->callback = callback_new_1(callback_cast(i2c_task), this);
-	this->timeout = event_add_timeout(5000, 1, this->callback);
+	this->timeout = event_add_timeout(500, 1, this->callback);
 	
 	//pTODO: init i2c data types
 	tx_pwm->pwm_freq = 10000;
