@@ -52,7 +52,7 @@ char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
 char result[6] = {0,};
 unsigned char i2ctxdata[128] = {0,};
 unsigned char i2crxdata[128] = {0,};
-
+struct i2c *i2c_plugin;
 
 typedef unsigned char uint8_t;
 typedef unsigned short int uint16_t;
