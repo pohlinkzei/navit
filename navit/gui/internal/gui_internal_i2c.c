@@ -16,7 +16,7 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301, USA.
  */
- 
+//#ifdef USE_I2C 
 #include <glib.h>
 #include <navit/main.h>
 #include <navit/debug.h>
@@ -24,7 +24,6 @@
 #include <navit/navit.h>
 #include <navit/callback.h>
 #include <navit/color.h>
-#include <navit/event.h>
 
 #include "time.h"
 #include "gui_internal.h"
@@ -32,10 +31,10 @@
 #include "coord.h"
 #include "gui_internal_widget.h"
 #include "gui_internal_priv.h"
-#include "gui_internal_media.h"
 #include "gui_internal_command.h"
+#include "gui_internal_i2c.h"
 #include <plugin/i2c/i2c.h>
-
+/*
 static void
 tracks_free (gpointer data)
 {
@@ -46,7 +45,7 @@ tracks_free (gpointer data)
 		g_free (track);
 	}
 }
-
+*/
 /**
  * @brief   play a track from the playlist
  * @param[in]   this    - pointer to the gui_priv
@@ -70,7 +69,7 @@ media_play_track (struct gui_priv *this, struct widget *wm, void *data)
  *
  * Builds a widget containing buttons to browse the root playlist, some buttons to control the player
  * The buttons are mapped to the player actions
- */
+ * /
 static struct widget *
 gui_internal_media_playlist_toolbar (struct gui_priv *this)
 {
@@ -104,7 +103,7 @@ gui_internal_media_playlist_toolbar (struct gui_priv *this)
     }
     return wl;
 }
-
+*/
 /**
  * @brief   Show the playlists in the root playlist
  * @param[in]   this    - pointer to the gui_priv
@@ -133,7 +132,7 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
 
     tbl = gui_internal_widget_table_new (this, gravity_left_top | flags_fill | flags_expand | orientation_vertical, 1);
     gui_internal_widget_append (w, tbl);
-
+/*
     while(connected_devices) {
       struct i2c_device * i2cd=connected_devices->data;
       
@@ -148,7 +147,7 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
 	  gui_internal_widget_append (row, wbm);
 	  wbm->c.x = i2cd->name;
       }
-
+*/
     gui_internal_menu_render (this);
 
 }
@@ -163,7 +162,7 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
  *
  * Display a list of the tracks in the current playlist
  *
- */
+ * /
 void
 gui_internal_i2c_show_device (struct gui_priv *this, struct widget *wm, void *data)
 {
@@ -185,7 +184,7 @@ gui_internal_i2c_show_device (struct gui_priv *this, struct widget *wm, void *da
     gui_internal_widget_append (w, gui_internal_media_playlist_toolbar (this));
     tbl = gui_internal_widget_table_new (this, gravity_left_top | flags_fill | flags_expand | orientation_vertical, 1);
     gui_internal_widget_append (w, tbl);
-    while(tracks) {
+ /*   while(tracks) {
 		struct audio_track * track=tracks->data;
 		tracks=g_list_next(tracks);
 		row = gui_internal_widget_table_row_new (this, gravity_left | flags_fill | orientation_horizontal);
@@ -199,10 +198,10 @@ gui_internal_i2c_show_device (struct gui_priv *this, struct widget *wm, void *da
 						NULL);
 		wbm->c.x = track->index;
 		gui_internal_widget_append (row, wbm);
-    }
+    }* /
 #endif
 	g_list_free_full(tracks, tracks_free);
     gui_internal_menu_render (this);
 }
-
-
+*/
+//#endif

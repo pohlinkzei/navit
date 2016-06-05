@@ -19,6 +19,10 @@
 
 #include "i2c.h"
 
+uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
+uint8_t serialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
+uint8_t serialize_pwm_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+
 
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
@@ -115,6 +119,70 @@ int select_slave(int device, uint8_t addr){
 	if (res >= 0){
 		dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",addr, res);
 		return 0;
+	}
+	return 1;
+}
+
+int init_i2c_devices(struct i2c *this){
+	int port, res;
+	this->connected_devices = NULL;
+	for(port = 0; port < 127; port++){
+		if(ioctl(this->device, I2C_SLAVE, port) < 0){
+			dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
+		}else{
+			res = i2c_smbus_read_byte(this->device);
+			if (res >= 0){
+				dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
+				struct connected_devices *cd = g_new0(struct connected_devices, 1);
+				cd->addr = port;
+				if(port == calculateID("MFA")){
+					cd->name = g_strdup("MFA");
+					cd->icon = "gui_active";
+					cd->rx_data = rx_mfa;
+					cd->tx_data = tx_mfa;
+				}else if(port == calculateID("LSG")){
+					cd->name = g_strdup("LSG");
+					cd->icon = "gui_active";
+					cd->rx_data = rx_lsg;
+					cd->tx_data = tx_lsg;
+				}else if(port == calculateID("WFS")){
+					cd->name = g_strdup("WFS");
+					cd->icon = "gui_active";
+					cd->rx_data = rx_wfs;
+					cd->tx_data = tx_wfs;
+				}else if(port == calculateID("ABC")){
+					cd->name = g_strdup("PWM");
+					cd->icon = "gui_active";
+					cd->rx_data = rx_pwm;
+					cd->tx_data = tx_pwm;
+					dbg(lvl_debug,"1\n");
+					cd->serialize_rx = serialize_pwm_rxdata;
+					dbg(lvl_debug,"2\n");
+					cd->serialize_tx = serialize_pwm_txdata;
+					dbg(lvl_debug,"3\n");
+					cd->deserialize_rx = deserialize_pwm_rxdata;
+					dbg(lvl_debug,"4\n");	
+					cd->rx_size = sizeof(rx_pwm_t);
+					dbg(lvl_debug,"5\n");	
+					cd->tx_size = sizeof(tx_pwm_t);
+					dbg(lvl_debug,"6\n");
+				}else if(port == calculateID("V2V")){
+					cd->name = g_strdup("V2V");
+					cd->icon = "gui_active";
+					cd->rx_data = rx_v2v;
+					cd->tx_data = tx_v2v;
+				}else{
+					cd->name = g_strdup("I2C");
+					cd->icon = "gui_inactive";
+					cd->rx_data = NULL;
+					cd->tx_data = NULL;
+					return 0;
+				}
+				this->connected_devices = g_list_append(this->connected_devices, cd);
+			}
+			
+			
+		}
 	}
 	return 1;
 }
@@ -283,11 +351,12 @@ osd_nav_next_turn_new(struct navit *nav, struct osd_methods *meth,
 // PWM 
 ///////////////////////////////////////////////////////////////////////////
 //*
-uint8_t serialize_pwm_txdata(tx_pwm_t *tx, uint8_t size, volatile uint8_t buffer[size]){
+uint8_t serialize_pwm_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_pwm_t)){
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_pwm_t));
 		return 0;
 	}
+	tx_pwm_t* tx = (tx_pwm_t*) tx_data;
 	dbg(lvl_debug,"\nserialize_pwm_txdata\n");
 	dbg(lvl_debug,"PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\n",tx->pwm_freq, tx->cal_temperature, tx->cal_voltage, tx->water_value, tx->time_value);
 		buffer[0] = (uint8_t) ((tx->pwm_freq & 0xFF00) >> 8);
@@ -300,10 +369,11 @@ uint8_t serialize_pwm_txdata(tx_pwm_t *tx, uint8_t size, volatile uint8_t buffer
 	return 1;
 }
 
-uint8_t serialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buffer[size]){
+uint8_t serialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(rx_pwm_t)){
 		return 0;
 	}
+	rx_pwm_t* rx = (rx_pwm_t*) rx_data;
 	dbg(lvl_debug,"\nserialize_pwm_rxdata\n");
 	dbg(lvl_debug,"PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
 	buffer[0] = (uint8_t) ((rx->pwm_freq & 0xFF00) >> 8);
@@ -321,10 +391,11 @@ uint8_t serialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buffer
 	return 1;
 }
 
-uint8_t deserialize_pwm_rxdata(rx_pwm_t *rx, uint8_t size, volatile uint8_t buffer[size]){
+uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(rx_pwm_t)){
 		return 0;
 	}
+	rx_pwm_t* rx = (rx_pwm_t*) rx_data;
 	dbg(lvl_debug,"\ndeserialize_pwm_rxdata\n");
 	dbg(lvl_debug,"PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	rx->pwm_freq = ((uint16_t) (buffer[0]) << 8) + buffer[1];
@@ -343,6 +414,9 @@ uint8_t pwm_rx_task(int device){
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx_pwm_t);
 	uint8_t i2crxdata[rx_size+1];
+	
+	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(rx_pwm_t), sizeof(*rx_pwm));
+	exit(0);
 	dbg(lvl_debug,"Read i2c\n");
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
@@ -836,10 +910,71 @@ uint8_t v2v_tx_task(int device){
 
 
 //*////////////////////////////////////////////////////////////////////////
-// TEST 
+// GENERIC I2C FUNCTIONS 
 ///////////////////////////////////////////////////////////////////////////
 
+uint8_t rx_task(int device, struct connected_devices* cd){
+	uint8_t i;
+	uint8_t rx_size = cd->rx_size;
+	uint8_t i2crxdata[rx_size+1];
+	dbg(lvl_debug,"Read i2c\n");
+		dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(rx_pwm_t), rx_size);
 
+	read_i2c_frame(device, i2crxdata, rx_size+1);
+	
+	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
+	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
+	if(rx_crc == i2crxdata[rx_size]){
+		dbg(lvl_debug,"//crc is correct\n");
+		uint8_t ser_rx[rx_size];
+		
+		if(cd->serialize_rx(cd->rx_data, rx_size, ser_rx)){
+			dbg(lvl_debug,"// check if new data differs from current data object\n");
+			uint8_t ok = 0;
+			for(i=0; i<rx_size; i++){
+				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
+				if(i2crxdata[i] != ser_rx[i]) ok = 1;
+			}
+			if(ok){
+				dbg(lvl_debug,"//we got new data -> replace the old object \n");
+				if(!deserialize_pwm_rxdata(cd->rx_data, rx_size, i2crxdata)){
+					dbg(lvl_debug,"failed to replace\n");
+					return 1;
+				}else{
+					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
+					for(i=0; i <= rx_size; i++){
+						i2crxdata[i] = 0;
+					}
+				}
+			}else return 1;
+		}else return 1;
+	}else return 1;
+	dbg(lvl_debug,"// end of rx data procession\n");
+	return 0;
+	
+}	
+uint8_t tx_task(int device, struct connected_devices *cd){
+	uint8_t i;
+	uint8_t tx_size = cd->tx_size;	
+	uint8_t i2ctxdata[tx_size+1];
+	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(tx_pwm_t), tx_size);	
+	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
+	if(cd->serialize_tx(cd->tx_data, tx_size, i2ctxdata)){
+		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
+		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
+		for(i=0;i<tx_size;i++){
+			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
+			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
+		}
+		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
+		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
+	}else return 1;
+	return 0;
+}
+
+//*////////////////////////////////////////////////////////////////////////
+// TEST 
+///////////////////////////////////////////////////////////////////////////
 void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 	uint8_t i;
 	dbg(lvl_debug,"Read %i bytes\n", size);
@@ -894,22 +1029,41 @@ void pwm_rx_task(int device){
 
 static void 
 i2c_task(struct i2c *this){
-	select_slave(this->device, this->addr[2]);
-	uint8_t size = sizeof(this->addr); 
-	uint8_t i;
-	//for(i=0; i<size;i++){
-		dbg(lvl_error, "%i\n\n\n ", i);
-		pwm_rx_task(this->device);
-		//getchar();
-		
-		
-		
+	
+	
+	
+	
+	
+	// task: read audio plugin and navigation status
+	// read pwm
+	// send to mfa
+	int i;
+	int num_devices = g_list_length(this->connected_devices);
+	
+	do{
+		struct connected_devices* cd = this->connected_devices->data;
+		select_slave(this->device, cd->addr);
+		rx_task(this->device, cd);
+				
 		tx_pwm->pwm_freq += 500;
 		if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
 		
-		pwm_tx_task(this->device);
-		//getchar();
-	//}
+		tx_task(this->device, cd);
+		if(this->connected_devices->next)
+			this->connected_devices = this->connected_devices->next;
+		else
+			break;
+	}	
+	while(num_devices--);	
+	select_slave(this->device, calculateID("ABC"));
+
+	pwm_rx_task(this->device);
+			
+	tx_pwm->pwm_freq += 500;
+	if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
+	
+	pwm_tx_task(this->device);
+
 }
 
 static void 
@@ -936,15 +1090,19 @@ i2c_main(struct i2c *this, struct navit *nav){
 static void 
 i2c_init(struct i2c *this, struct navit *nav)
 {
-	dbg(lvl_error, "i2c_init\n");
+	
 	this->nav=nav;
 
 	init_i2c_data();
 	dbg(lvl_debug,"I2C Test\n");
 	this->device = open_i2c("/dev/i2c-1");
 	check_ioctl(this->device);
-	scan_i2c_bus(this->device);
-
+	if(init_i2c_devices(this))
+		navit_add_callback(nav,callback_new_attr_1(callback_cast(i2c_main),attr_graphics_ready, this));
+	else
+		dbg(lvl_error, "No I2C Devices found\n");
+	//scan_i2c_bus(this->device);
+/*
 	uint8_t addr[5];
 	dbg(lvl_debug,"MFA: 0x%02x\n", calculateID("MFA"));
 	this->addr[0] = calculateID("MFA");
@@ -956,7 +1114,8 @@ i2c_init(struct i2c *this, struct navit *nav)
 	this->addr[3] = calculateID("WFS");
 	dbg(lvl_debug,"LSG: 0x%02x\n", calculateID("LSG"));
 	this->addr[4] = calculateID("LSG");
-	navit_add_callback(nav,callback_new_attr_1(callback_cast(i2c_main),attr_graphics_ready, this));
+*/
+	//navit_add_callback(nav,callback_new_attr_1(callback_cast(i2c_main),attr_graphics_ready, this));
 }
 
 
@@ -965,7 +1124,7 @@ void
 plugin_init(void)
 {
 	struct attr callback; 
-	struct i2c_plugin *this=g_new0(struct i2c, 1);
+	struct i2c *this= g_new0(struct i2c, 1);
 	callback.type=attr_callback;
 	callback.u.callback=callback_new_attr_1(callback_cast(i2c_init),attr_navit,this);
 	config_add_attr(config, &callback);

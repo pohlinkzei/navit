@@ -19,33 +19,33 @@
 #include <string.h>
 #include <errno.h>
 
-#include "config.h"
-#include "config_.h"
-#include "navit.h"
-#include "coord.h"
-#include "point.h"
-#include "plugin.h"
-#include "debug.h"
-#include "item.h"
-#include "xmlconfig.h"
-#include "attr.h"
-#include "layout.h"
-#include "navigation.h"
-#include "command.h"
-#include "callback.h"
-#include "graphics.h"
-#include "track.h"
-#include "vehicle.h"
-#include "vehicleprofile.h"
-#include "map.h"
-#include "event.h"
-#include "mapset.h"
-#include "osd.h"
-#include "route.h"
-#include "search.h"
-#include "callback.h"
-#include "gui.h"
-#include "util.h"
+#include <config.h>
+#include <config_.h>
+#include <navit.h>
+#include <coord.h>
+#include <point.h>
+#include <plugin.h>
+#include <debug.h>
+#include <item.h>
+#include <xmlconfig.h>
+#include <attr.h>
+#include <layout.h>
+#include <navigation.h>
+#include <command.h>
+#include <callback.h>
+#include <graphics.h>
+#include <track.h>
+#include <vehicle.h>
+#include <vehicleprofile.h>
+#include <map.h>
+#include <event.h>
+#include <mapset.h>
+#include <osd.h>
+#include <route.h>
+#include <search.h>
+#include <callback.h>
+#include <gui.h>
+#include <util.h>
 
 #define CRC_POLYNOME 0xAB
 char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
@@ -60,14 +60,25 @@ typedef signed char int8_t;
 typedef signed short int int16_t;
 
 struct i2c{
-	struct navit *nav;
-    unsigned char addr[10];
+	struct navit* nav;
     int device;
     struct callback* callback;
     int timeout;
-    GList connected_devices;
+    GList* connected_devices;
     
 };
+/*
+typedef struct connected_devices{
+	char* name;
+	uint8_t addr;
+	char* icon;
+	void* rx_data;
+	void* tx_data;
+	uint8_t (*serialize_tx)(void *tx, uint8_t size, volatile uint8_t buffer[size]);
+	uint8_t (*serialize_rx)(void *rx, uint8_t size, volatile uint8_t buffer[size]);
+	uint8_t (*deserialize_rx)(void *rx, uint8_t size, volatile uint8_t buffer[size]); 
+}connected_device_t;*/
+
 
 struct connected_devices{
 	char* name;
@@ -75,6 +86,11 @@ struct connected_devices{
 	char* icon;
 	void* rx_data;
 	void* tx_data;
+	uint8_t rx_size;
+	uint8_t tx_size;
+	uint8_t (*serialize_tx)(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+	uint8_t (*serialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
+	uint8_t (*deserialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]); 
 };
 
 typedef struct txdataLSG{
