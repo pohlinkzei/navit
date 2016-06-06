@@ -19,6 +19,9 @@
 
 #include "i2c.h"
 
+struct navigation_itm;
+struct navigation;
+
 uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_pwm_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
@@ -39,6 +42,7 @@ uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 uint8_t serialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_lsg_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
 
+struct i2c_nav_data* get_navigation_data(struct i2c *this);
 
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
@@ -64,7 +68,6 @@ uint8_t crc8(uint8_t crc, uint8_t data){
 			_data <<= 1;
 		}
 	}
-	printf(" 0x%02X",_data);
 	return _data;
 }
 
@@ -223,162 +226,130 @@ int init_i2c_devices(struct i2c *this){
 	return 1;
 }
 
+int get_next_turn_by_name(char* name){
+		//tdb
+		return 0;
+}	
 
-// Navigation_next_turn
-
-/*
-struct nav_next_turn {
-	char *test_text;
-	char *icon_src;
-	int icon_h, icon_w, active;
-	char *last_name;
-	int level;
-};
-
-static void
-osd_nav_next_turn_draw(struct osd_priv_common *opc, struct navit *navit,
-		       struct vehicle *v)
-{
-	struct nav_next_turn *this = (struct nav_next_turn *)opc->data;
-
-	struct point p;
-	int do_draw = opc->osd_item.do_draw;
+struct i2c_nav_data*
+get_navigation_data(struct i2c* this){
+	struct i2c_nav_data* nav_data = this->navigation_data;
+	
+	struct attr attr;
 	struct navigation *nav = NULL;
+	struct navigation_itm *nav_itm = NULL;
 	struct map *map = NULL;
 	struct map_rect *mr = NULL;
 	struct item *item = NULL;
-	struct graphics_image *gr_image;
-	char *image;
-	char *name = "unknown";
-	int level = this->level;
-
+	uint8_t status = 0, navigation_next_turn = 0;
+	char* name = "null";
+	struct navit* navit = this->nav;
+	if(nav_data){
 	if (navit)
 		nav = navit_get_navigation(navit);
-	if (nav)
+	if (nav){
 		map = navigation_get_map(nav);
+		struct attr item1;
+		navigation_get_attr(nav, attr_length, &item1, NULL);
+		dbg(lvl_info, "length: %i\n", item1.u.num);
+		nav_data->distance_to_next_turn = item1.u.num;
+		
+		if (navigation_get_attr(nav, attr_nav_status, &attr, NULL)){
+			uint8_t status = attr.u.num;
+			uint8_t status2 = (status == 3) ? 4 : status;
+
+			if ((status2 != this->last_status) && (status2 != status_invalid)) {
+				this->last_status = status2;
+				dbg(lvl_info, "status=%s\n", nav_status_to_text(status2));
+				nav_data->nav_status = status;
+			}
+		}
+	}
 	if (map)
 		mr = map_rect_new(map, NULL);
 	if (mr)
 		while ((item = map_rect_get_item(mr))
-		       && (item->type == type_nav_position || item->type == type_nav_none || level-- > 0));
+		       && (item->type == type_nav_position || item->type == type_nav_none));
 	if (item) {
 		name = item_to_name(item->type);
-		dbg(lvl_debug, "name=%s\n", name);
-		if (this->active != 1 || this->last_name != name) {
-			this->active = 1;
-			this->last_name = name;
-			do_draw = 1;
-		}
-	} else {
-		if (this->active != 0) {
-			this->active = 0;
-			do_draw = 1;
-		}
+		//navigation.item[1].length[named]
 	}
-	if (mr)
-		map_rect_destroy(mr);
+	dbg(lvl_info, "name=%s\n", name);
+	nav_data->next_turn = get_next_turn_by_name(name);
+	}
+	return nav_data;
+}
+/*
+/*
+static void osd_navigation_status_draw_do(struct osd_priv_common *opc, int status) {
+	struct navigation_status *this = (struct navigation_status *)opc->data;
+	struct point p;
+	int do_draw = opc->osd_item.do_draw;
+	struct graphics_image *gr_image;
+	char *image;
+
+	// When we're routing, the status will flip from 4 (routing) to 3 (recalculating) and back on
+	// every position update. This hack prevents unnecessary (and even undesirable) updates.
+	// 
+	int status2 = (status == 3) ? 4 : status;
+
+
+	if ((status2 != this->last_status) && (status2 != status_invalid)) {
+		this->last_status = status2;
+		do_draw = 1;
+	}
 
 	if (do_draw) {
 		osd_fill_with_bgcolor(&opc->osd_item);
-		if (this->active) {
-			image = g_strdup_dbg(lvl_debug,this->icon_src, name);
-			dbg(lvl_debug, "image=%s\n", image);
-			gr_image =
-			    graphics_image_new_scaled(opc->osd_item.gr,
-						      image, this->icon_w,
-						      this->icon_h);
-			if (!gr_image) {
-				dbg(lvl_error,"failed to load %s in %dx%d\n",image,this->icon_w,this->icon_h);
-				g_free(image);
-				image = graphics_icon_path("unknown.png");
-				gr_image =
-				    graphics_image_new_scaled(opc->
-							      osd_item.gr,
-							      image,
-							      this->icon_w,
-							      this->
-							      icon_h);
-			}
-			dbg(lvl_debug, "gr_image=%p\n", gr_image);
-			if (gr_image) {
-				p.x =
-				    (opc->osd_item.w -
-				     gr_image->width) / 2;
-				p.y =
-				    (opc->osd_item.h -
-				     gr_image->height) / 2;
-				graphics_draw_image(opc->osd_item.gr,
-						    opc->osd_item.
-						    graphic_fg, &p,
-						    gr_image);
-				graphics_image_free(opc->osd_item.gr,
-						    gr_image);
-			}
+		image = g_strdup_printf(this->icon_src, nav_status_to_text(status2));
+		dbg(lvl_debug, "image=%s\n", image);
+		gr_image =
+				graphics_image_new_scaled(opc->osd_item.gr,
+						image, this->icon_w,
+						this->icon_h);
+		if (!gr_image) {
+			dbg(lvl_error,"failed to load %s in %dx%d\n",image,this->icon_w,this->icon_h);
 			g_free(image);
+			image = graphics_icon_path("unknown.png");
+			gr_image =
+					graphics_image_new_scaled(opc->
+							osd_item.gr,
+							image,
+							this->icon_w,
+							this->
+							icon_h);
 		}
+		dbg(lvl_debug, "gr_image=%p\n", gr_image);
+		if (gr_image) {
+			p.x =
+					(opc->osd_item.w -
+							gr_image->width) / 2;
+			p.y =
+					(opc->osd_item.h -
+							gr_image->height) / 2;
+			graphics_draw_image(opc->osd_item.gr,
+					opc->osd_item.
+					graphic_fg, &p,
+					gr_image);
+			graphics_image_free(opc->osd_item.gr,
+					gr_image);
+		}
+		g_free(image);
 		graphics_draw_mode(opc->osd_item.gr, draw_mode_end);
 	}
 }
 
-static void
-osd_nav_next_turn_init(struct osd_priv_common *opc, struct navit *nav)
-{
-	osd_set_std_graphic(nav, &opc->osd_item, (struct osd_priv *)opc);
-	navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_nav_next_turn_draw), attr_position_coord_geo, opc));
-	navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_std_click), attr_button, &opc->osd_item));
-	osd_nav_next_turn_draw(opc, nav, NULL);
-}
 
-static struct osd_priv *
-osd_nav_next_turn_new(struct navit *nav, struct osd_methods *meth,
-		      struct attr **attrs)
-{
-	struct nav_next_turn *this = g_new0(struct nav_next_turn, 1);
-	struct osd_priv_common *opc = g_new0(struct osd_priv_common,1);
-	struct attr *attr;
+static void osd_navigation_status_draw(struct osd_priv *osd, struct navit *navit, struct vehicle *v) {
+	struct navigation *nav = NULL;
+	struct attr attr;
 
-	opc->data = (void*)this;
-	opc->osd_item.rel_x = 20;
-	opc->osd_item.rel_y = -80;
-	opc->osd_item.rel_w = 70;
-	opc->osd_item.navit = nav;
-	opc->osd_item.rel_h = 70;
-	opc->osd_item.font_size = 200;
-	opc->osd_item.meth.draw = osd_draw_cast(osd_nav_next_turn_draw);
-	meth->set_attr = set_std_osd_attr;
-	osd_set_std_attr(attrs, &opc->osd_item, 0);
-
-	this->icon_w = -1;
-	this->icon_h = -1;
-	this->active = -1;
-	this->level  = 0;
-
-	attr = attr_search(attrs, NULL, attr_icon_w);
-	if (attr)
-		this->icon_w = attr->u.num;
-
-	attr = attr_search(attrs, NULL, attr_icon_h);
-	if (attr)
-		this->icon_h = attr->u.num;
-
-	attr = attr_search(attrs, NULL, attr_icon_src);
-	if (attr) {
-		struct file_wordexp *we;
-		char **array;
-		we = file_wordexp_new(attr->u.str);
-		array = file_wordexp_get_array(we);
-		this->icon_src = graphics_icon_path(array[0]);
-		file_wordexp_destroy(we);
-	} else {
-		this->icon_src = graphics_icon_path("%s_wh.svg");
+	if (navit)
+		nav = navit_get_navigation(navit);
+	if (nav) {
+		if (navigation_get_attr(nav, attr_nav_status, &attr, NULL))
+			osd_navigation_status_draw_do((struct osd_priv_common *) osd, attr.u.num);
 	}
-	
-	attr = attr_search(attrs, NULL, attr_level);
-	if (attr)
-		this->level=attr->u.num;
-
-	navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_nav_next_turn_init), attr_graphics_ready, opc));
-	return (struct osd_priv *) opc;
 }
 //*/
 
@@ -445,66 +416,6 @@ uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	dbg(lvl_debug,"PWM:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
 	return 1;
 }
-/*
-uint8_t pwm_rx_task(int device){
-	uint8_t i;
-	uint8_t rx_size = sizeof(rx_pwm_t);
-	uint8_t i2crxdata[rx_size+1];
-	
-	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(rx_pwm_t), sizeof(*rx_pwm));
-	exit(0);
-	dbg(lvl_debug,"Read i2c\n");
-	read_i2c_frame(device, i2crxdata, rx_size+1);
-	
-	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
-	if(rx_crc == i2crxdata[rx_size]){
-		dbg(lvl_debug,"//crc is correct\n");
-		uint8_t ser_rx[rx_size];
-		
-		if(serialize_pwm_rxdata(rx_pwm, rx_size, ser_rx)){
-			dbg(lvl_debug,"// check if new data differs from current data object\n");
-			uint8_t ok = 0;
-			for(i=0; i<rx_size; i++){
-				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
-				if(i2crxdata[i] != ser_rx[i]) ok = 1;
-			}
-			if(ok){
-				dbg(lvl_debug,"//we got new data -> replace the old object \n");
-				if(!deserialize_pwm_rxdata(rx_pwm, rx_size, i2crxdata)){
-					dbg(lvl_debug,"failed to replace\n");
-					return 1;
-				}else{
-					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
-					for(i=0; i <= rx_size; i++){
-						i2crxdata[i] = 0;
-					}
-				}
-			}else return 1;
-		}else return 1;
-	}else return 1;
-	dbg(lvl_debug,"// end of rx data procession\n");
-	return 0;
-	
-}	
-uint8_t pwm_tx_task(int device){
-	uint8_t i;
-	uint8_t tx_size = sizeof(tx_pwm_t);	
-	uint8_t i2ctxdata[tx_size+1];	
-	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
-	if(serialize_pwm_txdata(tx_pwm, tx_size, i2ctxdata)){
-		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
-		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
-		for(i=0;i<tx_size;i++){
-			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
-		}
-		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
-	}else return 1;
-	return 0;
-}
-*/
 
 //*////////////////////////////////////////////////////////////////////////
 // MFA 
@@ -623,63 +534,7 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	rx->rpm = (uint16_t) (buffer[56] << 8) + buffer[57];
 	return 1;
 }
-/*
-uint8_t mfa_rx_task(int device){
-	uint8_t i;
-	uint8_t rx_size = sizeof(rx_mfa_t);
-	uint8_t i2crxdata[rx_size+1];
-	dbg(lvl_debug,"Read i2c\n");
-	read_i2c_frame(device, i2crxdata, rx_size+1);
-	
-	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
-	if(rx_crc == i2crxdata[rx_size]){
-		dbg(lvl_debug,"//crc is correct\n");
-		uint8_t ser_rx[rx_size];
-		
-		if(serialize_mfa_rxdata(rx_mfa, rx_size, ser_rx)){
-			dbg(lvl_debug,"// check if new data differs from current data object\n");
-			uint8_t ok = 0;
-			for(i=0; i<rx_size; i++){
-				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
-				if(i2crxdata[i] != ser_rx[i]) ok = 1;
-			}
-			if(ok){
-				dbg(lvl_debug,"//we got new data -> replace the old object \n");
-				if(!deserialize_mfa_rxdata(rx_mfa, rx_size, i2crxdata)){
-					dbg(lvl_debug,"failed to replace\n");
-					return 1;
-				}else{
-					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
-					for(i=0; i <= rx_size; i++){
-						i2crxdata[i] = 0;
-					}
-				}
-			}else return 1;
-		}else return 1;
-	}else return 1;
-	dbg(lvl_debug,"// end of rx data procession\n");
-	return 0;
-	
-}	
-uint8_t mfa_tx_task(int device){
-	uint8_t i;
-	uint8_t tx_size = sizeof(tx_mfa_t);	
-	uint8_t i2ctxdata[tx_size+1];	
-	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
-	if(serialize_mfa_txdata(tx_mfa, tx_size, i2ctxdata)){
-		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
-		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
-		for(i=0;i<tx_size;i++){
-			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
-		}
-		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
-	}else return 1;
-	return 0;
-}
-*/
+
 //*////////////////////////////////////////////////////////////////////////
 // LSG 
 ///////////////////////////////////////////////////////////////////////////
@@ -715,63 +570,7 @@ uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	//dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
-/*
-uint8_t lsg_rx_task(int device){
-	uint8_t i;
-	uint8_t rx_size = sizeof(rx_lsg_t);
-	uint8_t i2crxdata[rx_size+1];
-	dbg(lvl_debug,"Read i2c\n");
-	read_i2c_frame(device, i2crxdata, rx_size+1);
-	
-	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
-	if(rx_crc == i2crxdata[rx_size]){
-		dbg(lvl_debug,"//crc is correct\n");
-		uint8_t ser_rx[rx_size];
-		
-		if(serialize_lsg_rxdata(rx_lsg, rx_size, ser_rx)){
-			dbg(lvl_debug,"// check if new data differs from current data object\n");
-			uint8_t ok = 0;
-			for(i=0; i<rx_size; i++){
-				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
-				if(i2crxdata[i] != ser_rx[i]) ok = 1;
-			}
-			if(ok){
-				dbg(lvl_debug,"//we got new data -> replace the old object \n");
-				if(!deserialize_lsg_rxdata(rx_lsg, rx_size, i2crxdata)){
-					dbg(lvl_debug,"failed to replace\n");
-					return 1;
-				}else{
-					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
-					for(i=0; i <= rx_size; i++){
-						i2crxdata[i] = 0;
-					}
-				}
-			}else return 1;
-		}else return 1;
-	}else return 1;
-	dbg(lvl_debug,"// end of rx data procession\n");
-	return 0;
-	
-}	
-uint8_t lsg_tx_task(int device){
-	uint8_t i;
-	uint8_t tx_size = sizeof(tx_lsg_t);	
-	uint8_t i2ctxdata[tx_size+1];	
-	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
-	if(serialize_lsg_txdata(tx_lsg, tx_size, i2ctxdata)){
-		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
-		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
-		for(i=0;i<tx_size;i++){
-			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
-		}
-		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
-	}else return 1;
-	return 0;
-}
-*/
+
 //*////////////////////////////////////////////////////////////////////////
 // WFS
 ///////////////////////////////////////////////////////////////////////////
@@ -807,63 +606,7 @@ uint8_t deserialize_wfs_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	//dbg(lvl_debug,"wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
-/*
-uint8_t wfs_rx_task(int device){
-	uint8_t i;
-	uint8_t rx_size = sizeof(rx_wfs_t);
-	uint8_t i2crxdata[rx_size+1];
-	dbg(lvl_debug,"Read i2c\n");
-	read_i2c_frame(device, i2crxdata, rx_size+1);
-	
-	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
-	if(rx_crc == i2crxdata[rx_size]){
-		dbg(lvl_debug,"//crc is correct\n");
-		uint8_t ser_rx[rx_size];
-		
-		if(serialize_wfs_rxdata(rx_wfs, rx_size, ser_rx)){
-			dbg(lvl_debug,"// check if new data differs from current data object\n");
-			uint8_t ok = 0;
-			for(i=0; i<rx_size; i++){
-				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
-				if(i2crxdata[i] != ser_rx[i]) ok = 1;
-			}
-			if(ok){
-				dbg(lvl_debug,"//we got new data -> replace the old object \n");
-				if(!deserialize_wfs_rxdata(rx_wfs, rx_size, i2crxdata)){
-					dbg(lvl_debug,"failed to replace\n");
-					return 1;
-				}else{
-					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
-					for(i=0; i <= rx_size; i++){
-						i2crxdata[i] = 0;
-					}
-				}
-			}else return 1;
-		}else return 1;
-	}else return 1;
-	dbg(lvl_debug,"// end of rx data procession\n");
-	return 0;
-	
-}	
-uint8_t wfs_tx_task(int device){
-	uint8_t i;
-	uint8_t tx_size = sizeof(tx_wfs_t);	
-	uint8_t i2ctxdata[tx_size+1];	
-	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
-	if(serialize_wfs_txdata(tx_wfs, tx_size, i2ctxdata)){
-		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
-		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
-		for(i=0;i<tx_size;i++){
-			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
-		}
-		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
-	}else return 1;
-	return 0;
-}
-*/
+
 //*////////////////////////////////////////////////////////////////////////
 // V2V 
 ///////////////////////////////////////////////////////////////////////////
@@ -898,64 +641,6 @@ uint8_t deserialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	//dbg(lvl_debug,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
-/*
-uint8_t v2v_rx_task(int device){
-	uint8_t i;
-	uint8_t rx_size = sizeof(rx_v2v_t);
-	uint8_t i2crxdata[rx_size+1];
-	dbg(lvl_debug,"Read i2c\n");
-	read_i2c_frame(device, i2crxdata, rx_size+1);
-	
-	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
-	dbg(lvl_debug,"// check rx crc: 0x%02X 0x%02X\n",rx_crc,i2crxdata[rx_size]);
-	if(rx_crc == i2crxdata[rx_size]){
-		dbg(lvl_debug,"//crc is correct\n");
-		uint8_t ser_rx[rx_size];
-		
-		if(serialize_v2v_rxdata(rx_v2v, rx_size, ser_rx)){
-			dbg(lvl_debug,"// check if new data differs from current data object\n");
-			uint8_t ok = 0;
-			for(i=0; i<rx_size; i++){
-				dbg(lvl_debug,"check i2crxdata[%i] 0x%02X != ser_rx[%i] 0x%02X\n",i,i2crxdata[i],i,ser_rx[i]);
-				if(i2crxdata[i] != ser_rx[i]) ok = 1;
-			}
-			if(ok){
-				dbg(lvl_debug,"//we got new data -> replace the old object \n");
-				if(!deserialize_v2v_rxdata(rx_v2v, rx_size, i2crxdata)){
-					dbg(lvl_debug,"failed to replace\n");
-					return 1;
-				}else{
-					dbg(lvl_debug,"// everything went fine -> clean the buffer\n");
-					for(i=0; i <= rx_size; i++){
-						i2crxdata[i] = 0;
-					}
-				}
-			}else return 1;
-		}else return 1;
-	}else return 1;
-	dbg(lvl_debug,"// end of rx data procession\n");
-	return 0;
-	
-}	
-uint8_t v2v_tx_task(int device){
-	uint8_t i;
-	uint8_t tx_size = sizeof(tx_v2v_t);	
-	uint8_t i2ctxdata[tx_size+1];	
-	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
-	if(serialize_v2v_txdata(tx_v2v, tx_size, i2ctxdata)){
-		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
-		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
-		for(i=0;i<tx_size;i++){
-			i2c_smbus_write_byte_data(device, i, i2ctxdata[i]);
-			dbg(lvl_debug,"Write %i: 0x%02X\n", i, i2ctxdata[i]);
-		}
-		i2c_smbus_write_byte_data(device, i,i2ctxdata[tx_size]); 
-		dbg(lvl_debug,"Write CRC: 0x%02X\n", i2ctxdata[tx_size]);
-	}else return 1;
-	return 0;
-}
-*/
-
 
 //*////////////////////////////////////////////////////////////////////////
 // GENERIC I2C FUNCTIONS 
@@ -1035,34 +720,7 @@ void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 		dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) data[i], device);
 	}
 }
-/*
-void test_i2c(int device, uint8_t* addr, uint8_t addr_size){
-	uint8_t j,i;
-	for(j=0; j<addr_size; j++){
-		if(select_slave(device, addr[j])){
-			dbg(lvl_error,"Can't open port: 0x%02X\n",addr[j]);
 
-		}else{
-			for(i=0; i<6; i++){
-				if(i==0){
-					result[i]=i2c_smbus_read_byte_data(device, i);
-				}else{
-					result[i] = i2c_smbus_read_byte(device);
-				}
-				dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) result[i], device);
-			}
-		
-			for(i=0; i<6; i++){
-					i2c_smbus_write_byte_data(device, i, x[i]);
-					dbg(lvl_debug,"Write %i: 0x%02X 0x%02X\n", i, x[i], device);
-			}
-			for(i=0; i<6; i++){
-				x[i]=result[i];
-			}
-		}
-	}
-}
-*/
 ///////////////////////////////////////////////////////////////////////////
 // MAIN
 ///////////////////////////////////////////////////////////////////////////
@@ -1070,9 +728,6 @@ void test_i2c(int device, uint8_t* addr, uint8_t addr_size){
 static void 
 i2c_task(struct i2c *this){
 
-	// task: read audio plugin and navigation status
-	// read pwm
-	// send to mfa
 	int i;
 	int num_devices = g_list_length(this->connected_devices);
 	
@@ -1091,8 +746,10 @@ i2c_task(struct i2c *this){
 			else
 				break;
 		}
-	}	
+	}
 	while(num_devices--);
+	
+	get_navigation_data(this);
 
 }
 
@@ -1114,6 +771,7 @@ static void
 i2c_init(struct i2c *this, struct navit *nav)
 {
 	this->nav=nav;
+	this->navigation_data = g_new0(struct i2c_nav_data, 1);
 	dbg(lvl_debug,"I2C Test\n");
 	this->device = open_i2c("/dev/i2c-1");
 	check_ioctl(this->device);

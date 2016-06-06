@@ -59,13 +59,21 @@ typedef unsigned short int uint16_t;
 typedef signed char int8_t;
 typedef signed short int int16_t;
 
+struct i2c_nav_data{
+	int distance_to_next_turn;
+	int nav_status;
+	int next_turn;
+};
+
 struct i2c{
 	struct navit* nav;
     int device;
+    int last_status;
+    int last_next_turn;
     struct callback* callback;
     int timeout;
     GList* connected_devices;
-    
+    struct i2c_nav_data* navigation_data;
 };
 /*
 typedef struct connected_devices{

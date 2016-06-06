@@ -122,8 +122,9 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
 {
     struct widget *wb, *w, *wbm;
     struct widget *tbl, *row;
-    dbg (lvl_info, "Showing rootlist\n");
-    
+#ifdef USE_I2C 
+    dbg (lvl_error, "Showing rootlist\n");
+#endif    
 
     gui_internal_prune_menu_count (this, 1, 0);
     wb = gui_internal_menu (this, "I2C Config");
