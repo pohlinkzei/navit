@@ -16,7 +16,7 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301, USA.
  */
-//#ifdef USE_I2C 
+
 #include <glib.h>
 #include <navit/main.h>
 #include <navit/debug.h>
@@ -32,8 +32,10 @@
 #include "gui_internal_widget.h"
 #include "gui_internal_priv.h"
 #include "gui_internal_command.h"
+#ifdef USE_I2C 
 #include "gui_internal_i2c.h"
 #include <plugin/i2c/i2c.h>
+#endif
 /*
 static void
 tracks_free (gpointer data)
