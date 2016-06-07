@@ -279,80 +279,6 @@ get_navigation_data(struct i2c* this){
 	}
 	return nav_data;
 }
-/*
-/*
-static void osd_navigation_status_draw_do(struct osd_priv_common *opc, int status) {
-	struct navigation_status *this = (struct navigation_status *)opc->data;
-	struct point p;
-	int do_draw = opc->osd_item.do_draw;
-	struct graphics_image *gr_image;
-	char *image;
-
-	// When we're routing, the status will flip from 4 (routing) to 3 (recalculating) and back on
-	// every position update. This hack prevents unnecessary (and even undesirable) updates.
-	// 
-	int status2 = (status == 3) ? 4 : status;
-
-
-	if ((status2 != this->last_status) && (status2 != status_invalid)) {
-		this->last_status = status2;
-		do_draw = 1;
-	}
-
-	if (do_draw) {
-		osd_fill_with_bgcolor(&opc->osd_item);
-		image = g_strdup_printf(this->icon_src, nav_status_to_text(status2));
-		dbg(lvl_debug, "image=%s\n", image);
-		gr_image =
-				graphics_image_new_scaled(opc->osd_item.gr,
-						image, this->icon_w,
-						this->icon_h);
-		if (!gr_image) {
-			dbg(lvl_error,"failed to load %s in %dx%d\n",image,this->icon_w,this->icon_h);
-			g_free(image);
-			image = graphics_icon_path("unknown.png");
-			gr_image =
-					graphics_image_new_scaled(opc->
-							osd_item.gr,
-							image,
-							this->icon_w,
-							this->
-							icon_h);
-		}
-		dbg(lvl_debug, "gr_image=%p\n", gr_image);
-		if (gr_image) {
-			p.x =
-					(opc->osd_item.w -
-							gr_image->width) / 2;
-			p.y =
-					(opc->osd_item.h -
-							gr_image->height) / 2;
-			graphics_draw_image(opc->osd_item.gr,
-					opc->osd_item.
-					graphic_fg, &p,
-					gr_image);
-			graphics_image_free(opc->osd_item.gr,
-					gr_image);
-		}
-		g_free(image);
-		graphics_draw_mode(opc->osd_item.gr, draw_mode_end);
-	}
-}
-
-
-static void osd_navigation_status_draw(struct osd_priv *osd, struct navit *navit, struct vehicle *v) {
-	struct navigation *nav = NULL;
-	struct attr attr;
-
-	if (navit)
-		nav = navit_get_navigation(navit);
-	if (nav) {
-		if (navigation_get_attr(nav, attr_nav_status, &attr, NULL))
-			osd_navigation_status_draw_do((struct osd_priv_common *) osd, attr.u.num);
-	}
-}
-//*/
-
 
 ///////////////////////////////////////////////////////////////////////////
 // PWM 
@@ -730,7 +656,7 @@ i2c_task(struct i2c *this){
 
 	int i;
 	int num_devices = g_list_length(this->connected_devices);
-	
+	dbg(lvl_info, "%i connected devices\n", num_devices);
 	do{
 		if(this->connected_devices->data){
 			struct connected_devices* cd = this->connected_devices->data;
