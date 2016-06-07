@@ -86,8 +86,7 @@ int open_i2c(const char* device){
 	int dev_h = open(device, O_RDWR);
 	if(dev_h < 0){
 		perror("Error: Can't open I2C device!\n");
-		exit(1);
-		return -1;
+		return 0;
 	}
 	return dev_h;
 }
@@ -96,7 +95,6 @@ unsigned long check_ioctl(int device){
 	unsigned long funcs;
 	if(ioctl(device, I2C_FUNCS, &funcs) < 0){
 		perror("Error: No I2C functions found!\n");
-		exit(1);
 		return 0;
 	}
 	if(funcs & I2C_FUNC_I2C){
@@ -110,13 +108,15 @@ unsigned long check_ioctl(int device){
 
 void scan_i2c_bus(int device){
 	int port, res;
-	for(port = 0; port < 127; port++){
-		if(ioctl(device, I2C_SLAVE, port) < 0){
-			dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
-		}else{
-			res = i2c_smbus_read_byte(device);
-			if (res >= 0){
-				dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
+	if(device){
+		for(port = 0; port < 127; port++){
+			if(ioctl(device, I2C_SLAVE, port) < 0){
+				dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
+			}else{
+				res = i2c_smbus_read_byte(device);
+				if (res >= 0){
+					dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
+				}
 			}
 		}
 	}
@@ -124,11 +124,13 @@ void scan_i2c_bus(int device){
 
 int select_slave(int device, uint8_t addr){
 	int res;
-	dbg(lvl_debug,"Probe Address 0x%02X: %i\n", addr, ioctl(device, I2C_SLAVE, addr));
-	res = i2c_smbus_read_byte_data(device, 0);
-	if (res >= 0){
-		dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",addr, res);
-		return 0;
+	if(device){
+		dbg(lvl_debug,"Probe Address 0x%02X: %i\n", addr, ioctl(device, I2C_SLAVE, addr));
+		res = i2c_smbus_read_byte_data(device, 0);
+		if (res >= 0){
+			dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",addr, res);
+			return 0;
+		}
 	}
 	return 1;
 }
@@ -136,91 +138,92 @@ int select_slave(int device, uint8_t addr){
 int init_i2c_devices(struct i2c *this){
 	int port, res;
 	this->connected_devices = NULL;
-	for(port = 0; port < 127; port++){
-		if(ioctl(this->device, I2C_SLAVE, port) < 0){
-			dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
-		}else{
-			res = i2c_smbus_read_byte(this->device);
-			if (res >= 0){
-				dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
-				struct connected_devices *cd = g_new0(struct connected_devices, 1);
-				cd->addr = port;
-				if(port == calculateID("MFA")){
-					
-					rx_mfa = (rx_mfa_t*) malloc(sizeof(rx_mfa_t)); 
-					tx_mfa = (tx_mfa_t*) malloc(sizeof(tx_mfa_t));
-					cd->name = g_strdup("MFA");
-					cd->icon = "gui_active";
-					cd->rx_data = rx_mfa;
-					cd->tx_data = tx_mfa;
-					cd->serialize_rx = serialize_mfa_rxdata;
-					cd->serialize_tx = serialize_mfa_txdata;
-					cd->deserialize_rx = deserialize_mfa_rxdata;
-					cd->rx_size = sizeof(rx_mfa_t);
-					cd->tx_size = sizeof(tx_mfa_t);
-				}else if(port == calculateID("LSG")){
-					rx_lsg = (rx_lsg_t*) malloc(sizeof(rx_lsg_t)); 
-					tx_lsg = (tx_lsg_t*) malloc(sizeof(tx_lsg_t)); 
-					
-					cd->name = g_strdup("LSG");
-					cd->icon = "gui_active";
-					cd->rx_data = rx_lsg;
-					cd->tx_data = tx_lsg;
-					cd->serialize_rx = serialize_lsg_rxdata;
-					cd->serialize_tx = serialize_lsg_txdata;
-					cd->deserialize_rx = deserialize_lsg_rxdata;
-					cd->rx_size = sizeof(rx_lsg_t);
-					cd->tx_size = sizeof(tx_lsg_t);
-				}else if(port == calculateID("WFS")){
-					rx_wfs = (rx_wfs_t*) malloc(sizeof(rx_wfs_t)); 
-					tx_wfs = (tx_wfs_t*) malloc(sizeof(tx_wfs_t)); 
-					cd->name = g_strdup("WFS");
-					cd->icon = "gui_active";
-					cd->rx_data = rx_wfs;
-					cd->tx_data = tx_wfs;
-					cd->serialize_rx = serialize_wfs_rxdata;
-					cd->serialize_tx = serialize_wfs_txdata;
-					cd->deserialize_rx = deserialize_wfs_rxdata;
-					cd->rx_size = sizeof(rx_wfs_t);
-					cd->tx_size = sizeof(tx_wfs_t);
-				}else if(port == calculateID("PWM")){
-					rx_pwm = (rx_pwm_t*) malloc(sizeof(rx_pwm_t)); 
-					tx_pwm = (tx_pwm_t*) malloc(sizeof(tx_pwm_t)); 
-					tx_pwm->pwm_freq = 10000;
-					tx_pwm->cal_temperature = 5;
-					tx_pwm->cal_voltage = 5;
-					tx_pwm->time_value = 10;
-					tx_pwm->water_value = 35;
-					cd->name = g_strdup("PWM");
-					cd->icon = "gui_active";
-					cd->rx_data = rx_pwm;
-					cd->tx_data = tx_pwm;
-					cd->serialize_rx = serialize_pwm_rxdata;
-					cd->serialize_tx = serialize_pwm_txdata;
-					cd->deserialize_rx = deserialize_pwm_rxdata;
-					cd->rx_size = sizeof(rx_pwm_t);
-					cd->tx_size = sizeof(tx_pwm_t);
-				}else if(port == calculateID("V2V")){
-					rx_v2v = (rx_v2v_t*) malloc(sizeof(rx_v2v_t)); 
-					tx_v2v = (tx_v2v_t*) malloc(sizeof(tx_v2v_t)); 
-					cd->name = g_strdup("V2V");
-					cd->icon = "gui_active";
-					cd->rx_data = rx_v2v;
-					cd->tx_data = tx_v2v;
-					cd->serialize_rx = serialize_v2v_rxdata;
-					cd->serialize_tx = serialize_v2v_txdata;
-					cd->deserialize_rx = deserialize_v2v_rxdata;
-					cd->rx_size = sizeof(rx_v2v_t);
-					cd->tx_size = sizeof(tx_v2v_t);
-				}else{
-					cd->name = g_strdup("I2C");
-					cd->icon = "gui_inactive";
-					return 0;
+	if(this->device){
+		for(port = 0; port < 127; port++){
+			if(ioctl(this->device, I2C_SLAVE, port) < 0){
+				dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
+			}else{
+				res = i2c_smbus_read_byte(this->device);
+				if (res >= 0){
+					dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
+					struct connected_devices *cd = g_new0(struct connected_devices, 1);
+					cd->addr = port;
+					if(port == calculateID("MFA")){
+						
+						rx_mfa = (rx_mfa_t*) malloc(sizeof(rx_mfa_t)); 
+						tx_mfa = (tx_mfa_t*) malloc(sizeof(tx_mfa_t));
+						cd->name = g_strdup("MFA");
+						cd->icon = "gui_active";
+						cd->rx_data = rx_mfa;
+						cd->tx_data = tx_mfa;
+						cd->serialize_rx = serialize_mfa_rxdata;
+						cd->serialize_tx = serialize_mfa_txdata;
+						cd->deserialize_rx = deserialize_mfa_rxdata;
+						cd->rx_size = sizeof(rx_mfa_t);
+						cd->tx_size = sizeof(tx_mfa_t);
+					}else if(port == calculateID("LSG")){
+						rx_lsg = (rx_lsg_t*) malloc(sizeof(rx_lsg_t)); 
+						tx_lsg = (tx_lsg_t*) malloc(sizeof(tx_lsg_t)); 
+						
+						cd->name = g_strdup("LSG");
+						cd->icon = "gui_active";
+						cd->rx_data = rx_lsg;
+						cd->tx_data = tx_lsg;
+						cd->serialize_rx = serialize_lsg_rxdata;
+						cd->serialize_tx = serialize_lsg_txdata;
+						cd->deserialize_rx = deserialize_lsg_rxdata;
+						cd->rx_size = sizeof(rx_lsg_t);
+						cd->tx_size = sizeof(tx_lsg_t);
+					}else if(port == calculateID("WFS")){
+						rx_wfs = (rx_wfs_t*) malloc(sizeof(rx_wfs_t)); 
+						tx_wfs = (tx_wfs_t*) malloc(sizeof(tx_wfs_t)); 
+						cd->name = g_strdup("WFS");
+						cd->icon = "gui_active";
+						cd->rx_data = rx_wfs;
+						cd->tx_data = tx_wfs;
+						cd->serialize_rx = serialize_wfs_rxdata;
+						cd->serialize_tx = serialize_wfs_txdata;
+						cd->deserialize_rx = deserialize_wfs_rxdata;
+						cd->rx_size = sizeof(rx_wfs_t);
+						cd->tx_size = sizeof(tx_wfs_t);
+					}else if(port == calculateID("PWM")){
+						rx_pwm = (rx_pwm_t*) malloc(sizeof(rx_pwm_t)); 
+						tx_pwm = (tx_pwm_t*) malloc(sizeof(tx_pwm_t)); 
+						tx_pwm->pwm_freq = 10000;
+						tx_pwm->cal_temperature = 5;
+						tx_pwm->cal_voltage = 5;
+						tx_pwm->time_value = 10;
+						tx_pwm->water_value = 35;
+						cd->name = g_strdup("PWM");
+						cd->icon = "gui_active";
+						cd->rx_data = rx_pwm;
+						cd->tx_data = tx_pwm;
+						cd->serialize_rx = serialize_pwm_rxdata;
+						cd->serialize_tx = serialize_pwm_txdata;
+						cd->deserialize_rx = deserialize_pwm_rxdata;
+						cd->rx_size = sizeof(rx_pwm_t);
+						cd->tx_size = sizeof(tx_pwm_t);
+					}else if(port == calculateID("V2V")){
+						rx_v2v = (rx_v2v_t*) malloc(sizeof(rx_v2v_t)); 
+						tx_v2v = (tx_v2v_t*) malloc(sizeof(tx_v2v_t)); 
+						cd->name = g_strdup("V2V");
+						cd->icon = "gui_active";
+						cd->rx_data = rx_v2v;
+						cd->tx_data = tx_v2v;
+						cd->serialize_rx = serialize_v2v_rxdata;
+						cd->serialize_tx = serialize_v2v_txdata;
+						cd->deserialize_rx = deserialize_v2v_rxdata;
+						cd->rx_size = sizeof(rx_v2v_t);
+						cd->tx_size = sizeof(tx_v2v_t);
+					}else{
+						cd->name = g_strdup("I2C");
+						cd->icon = "gui_inactive";
+						return 0;
+					}
+					this->connected_devices = g_list_append(this->connected_devices, cd);
 				}
-				this->connected_devices = g_list_append(this->connected_devices, cd);
+				
 			}
-			
-			
 		}
 	}
 	return 1;
@@ -230,6 +233,37 @@ int get_next_turn_by_name(char* name){
 		//tdb
 		return 0;
 }	
+
+static int
+round_distance(int dist)
+{
+	if (dist < 100) {
+		dist=(dist+5)/10;
+		return dist*10;
+	}
+	if (dist < 250) {
+		dist=(dist+13)/25;
+		return dist*25;
+	}
+	if (dist < 500) {
+		dist=(dist+25)/50;
+		return dist*50;
+	}
+	if (dist < 1000) {
+		dist=(dist+50)/100;
+		return dist*100;
+	}
+	if (dist < 5000) {
+		dist=(dist+50)/100;
+		return dist*100;
+	}
+	if (dist < 100000) {
+		dist=(dist+500)/1000;
+		return dist*1000;
+	}
+	dist=(dist+5000)/10000;
+	return dist*10000;
+}
 
 struct i2c_nav_data*
 get_navigation_data(struct i2c* this){
@@ -251,8 +285,8 @@ get_navigation_data(struct i2c* this){
 		map = navigation_get_map(nav);
 		struct attr item1;
 		navigation_get_attr(nav, attr_length, &item1, NULL);
-		dbg(lvl_info, "length: %i\n", item1.u.num);
-		nav_data->distance_to_next_turn = item1.u.num;
+		dbg(lvl_info, "length: %i\n", round_distance(item1.u.num));
+		nav_data->distance_to_next_turn = round_distance(item1.u.num);
 		
 		if (navigation_get_attr(nav, attr_nav_status, &attr, NULL)){
 			uint8_t status = attr.u.num;
@@ -576,9 +610,10 @@ uint8_t rx_task(int device, struct connected_devices* cd){
 	uint8_t i;
 	uint8_t rx_size = cd->rx_size;
 	uint8_t i2crxdata[rx_size+1];
+	if(!device) return 1;
 	dbg(lvl_debug,"Read i2c\n");
 	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(rx_pwm_t), rx_size);
-
+	
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
 	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
@@ -616,6 +651,7 @@ uint8_t tx_task(int device, struct connected_devices *cd){
 	uint8_t i;
 	uint8_t tx_size = cd->tx_size;	
 	uint8_t i2ctxdata[tx_size+1];
+	if(!device) return 1;
 	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(tx_pwm_t), tx_size);	
 	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(cd->serialize_tx(cd->tx_data, tx_size, i2ctxdata)){
@@ -631,20 +667,24 @@ uint8_t tx_task(int device, struct connected_devices *cd){
 	return 0;
 }
 
+
+
 //*////////////////////////////////////////////////////////////////////////
 // TEST 
 ///////////////////////////////////////////////////////////////////////////
 void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 	uint8_t i;
-	dbg(lvl_debug,"Read %i bytes\n", size);
-	for(i=0;i<size;i++){	
-		if(i==0){
-			data[i] = i2c_smbus_read_byte_data(device, i);
-		}else{
-			data[i] = i2c_smbus_read_byte(device);
+	if(device){
+		dbg(lvl_debug,"Read %i bytes\n", size);
+		for(i=0;i<size;i++){	
+			if(i==0){
+				data[i] = i2c_smbus_read_byte_data(device, i);
+			}else{
+				data[i] = i2c_smbus_read_byte(device);
+			}
+			dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) data[i], device);
 		}
-		dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) data[i], device);
-	}
+}
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -657,24 +697,25 @@ i2c_task(struct i2c *this){
 	int i;
 	int num_devices = g_list_length(this->connected_devices);
 	dbg(lvl_info, "%i connected devices\n", num_devices);
-	do{
-		if(this->connected_devices->data){
-			struct connected_devices* cd = this->connected_devices->data;
-			select_slave(this->device, cd->addr);
-			rx_task(this->device, cd);
-					
-			tx_pwm->pwm_freq += 500;
-			if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
-			
-			tx_task(this->device, cd);
-			if(this->connected_devices->next)
-				this->connected_devices = this->connected_devices->next;
-			else
-				break;
+	if(this->device){
+		do{
+			if(this->connected_devices->data){
+				struct connected_devices* cd = this->connected_devices->data;
+				select_slave(this->device, cd->addr);
+				rx_task(this->device, cd);
+						
+				tx_pwm->pwm_freq += 500;
+				if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
+				
+				tx_task(this->device, cd);
+				if(this->connected_devices->next)
+					this->connected_devices = this->connected_devices->next;
+				else
+					break;
+			}
 		}
+		while(num_devices--);
 	}
-	while(num_devices--);
-	
 	get_navigation_data(this);
 
 }
