@@ -234,37 +234,21 @@ int get_next_turn_by_name(char* name){
 		return 0;
 }	
 
-static int
-round_distance(int dist)
+int
+round_distance(int distance)
 {
-	if (dist < 100) {
-		dist=(dist+5)/10;
-		return dist*10;
-	}
-	if (dist < 250) {
-		dist=(dist+13)/25;
-		return dist*25;
-	}
-	if (dist < 500) {
-		dist=(dist+25)/50;
-		return dist*50;
-	}
-	if (dist < 1000) {
-		dist=(dist+50)/100;
-		return dist*100;
-	}
-	if (dist < 5000) {
-		dist=(dist+50)/100;
-		return dist*100;
-	}
-	if (dist < 100000) {
-		dist=(dist+500)/1000;
-		return dist*1000;
-	}
-	dist=(dist+5000)/10000;
-	return dist*10000;
+	if (distance >= 10000)
+		return ((distance + 500) / 1000) * 1000;
+	else if (distance >= 1000)
+		return ((distance+50) / 100) * 100;
+	else if (distance >= 300)
+		return ((distance+ 13) / 25) * 25;
+	else if (distance >= 50)
+		return ((distance + 5) / 10) * 10;
+	else 
+		return distance;
+	
 }
-
 struct i2c_nav_data*
 get_navigation_data(struct i2c* this){
 	struct i2c_nav_data* nav_data = this->navigation_data;
