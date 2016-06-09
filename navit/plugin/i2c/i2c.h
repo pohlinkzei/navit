@@ -46,7 +46,11 @@
 #include <callback.h>
 #include <gui.h>
 #include <util.h>
+#ifdef USE_AUDIO_FRAMEWORK
+#include <audio.h>
+#endif
 
+#define AUDIO_STR_LENGTH 32
 #define CRC_POLYNOME 0xAB
 char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
 char result[6] = {0,};
@@ -138,7 +142,7 @@ typedef struct rxdataWFS{
 }rx_wfs_t;
 
 typedef struct txdataMFA{
-	uint8_t radio_text[32];
+	uint8_t radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;
 	long distance_to_next_turn;
 	//navigation active?
@@ -150,7 +154,7 @@ typedef struct txdataMFA{
 }tx_mfa_t;
 	
 typedef struct rxdataMFA{
-	uint8_t radio_text[32];
+	uint8_t radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;
 	long distance_to_next_turn;
 	//navigation active?
@@ -191,17 +195,16 @@ typedef struct rxdataPWM{
 }rx_pwm_t;
 
 
-rx_lsg_t *rx_lsg;
-tx_lsg_t *tx_lsg;
-rx_pwm_t *rx_pwm;
-tx_pwm_t *tx_pwm;
-rx_wfs_t *rx_wfs;
-tx_wfs_t *tx_wfs;
-rx_v2v_t *rx_v2v;
-tx_v2v_t *tx_v2v;
-rx_mfa_t *rx_mfa;
-tx_mfa_t *tx_mfa;
-
+rx_lsg_t *rx_lsg = NULL;
+tx_lsg_t *tx_lsg = NULL;
+rx_pwm_t *rx_pwm = NULL;
+tx_pwm_t *tx_pwm = NULL;
+rx_wfs_t *rx_wfs = NULL;
+tx_wfs_t *tx_wfs = NULL;
+rx_v2v_t *rx_v2v = NULL;
+tx_v2v_t *tx_v2v = NULL;
+rx_mfa_t *rx_mfa = NULL;
+tx_mfa_t *tx_mfa = NULL;
 
 void read_i2c_frame(int device, uint8_t* data, uint8_t size);
 

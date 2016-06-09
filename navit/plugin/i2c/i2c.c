@@ -19,6 +19,7 @@
 
 #include "i2c.h"
 
+
 struct navigation_itm;
 struct navigation;
 
@@ -43,6 +44,7 @@ uint8_t serialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 uint8_t serialize_lsg_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
 
 struct i2c_nav_data* get_navigation_data(struct i2c *this);
+void get_audio_data(struct i2c *this, uint8_t audio_str[AUDIO_STR_LENGTH]);
 
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
@@ -164,7 +166,6 @@ int init_i2c_devices(struct i2c *this){
 					}else if(port == calculateID("LSG")){
 						rx_lsg = (rx_lsg_t*) malloc(sizeof(rx_lsg_t)); 
 						tx_lsg = (tx_lsg_t*) malloc(sizeof(tx_lsg_t)); 
-						
 						cd->name = g_strdup("LSG");
 						cd->icon = "gui_active";
 						cd->rx_data = rx_lsg;
@@ -222,12 +223,25 @@ int init_i2c_devices(struct i2c *this){
 					}
 					this->connected_devices = g_list_append(this->connected_devices, cd);
 				}
-				
 			}
 		}
 	}
 	return 1;
 }
+
+void get_audio_data(struct i2c* this, uint8_t audio_str[AUDIO_STR_LENGTH]){
+	int i = 0;
+	gchar str[256] = {0,};
+#ifdef USE_AUDIO_FRAMEWORK 
+	strcpy(str, audio_get_current_track(this->nav));
+	strcat(str, " - ");
+	strcat(str, audio_get_current_playlist(this->nav));
+#endif
+for (i=0; i< AUDIO_STR_LENGTH; i++){
+		audio_str[i] = str[i];
+	}
+}
+
 
 int get_next_turn_by_name(char* name){
 		//tdb
@@ -401,37 +415,37 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
 	dbg(lvl_debug,"\nserialize_mfa_rxdata\n");
 	uint8_t i;
-	for(i=0;i<32;i++){
+	for(i=0;i<AUDIO_STR_LENGTH;i++){
 		buffer[i] = rx->radio_text[i];
 	}
-	buffer[32] = rx->navigation_next_turn;//or status
-	buffer[33] = (uint8_t) ((rx->distance_to_next_turn & 0xFF000000) >> 24);
-	buffer[34] = (uint8_t) ((rx->distance_to_next_turn & 0x00FF0000) >> 16);
-	buffer[35] = (uint8_t) ((rx->distance_to_next_turn & 0x0000FF00) >> 8);
-	buffer[36] = (uint8_t) ((rx->distance_to_next_turn & 0x000000FF));
+	buffer[AUDIO_STR_LENGTH] = rx->navigation_next_turn;//or status
+	buffer[AUDIO_STR_LENGTH + 1] = (uint8_t) ((rx->distance_to_next_turn & 0xFF000000) >> 24);
+	buffer[AUDIO_STR_LENGTH + 2] = (uint8_t) ((rx->distance_to_next_turn & 0x00FF0000) >> 16);
+	buffer[AUDIO_STR_LENGTH + 3] = (uint8_t) ((rx->distance_to_next_turn & 0x0000FF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 4] = (uint8_t) ((rx->distance_to_next_turn & 0x000000FF));
 	//navigation active?
-	buffer[37] = rx->cal_water_temperature;
-	buffer[38] = rx->cal_voltage;
-	buffer[39] = rx->cal_oil_temperature;
-	buffer[40] = rx->cal_consumption;
+	buffer[AUDIO_STR_LENGTH + 5] = rx->cal_water_temperature;
+	buffer[AUDIO_STR_LENGTH + 6] = rx->cal_voltage;
+	buffer[AUDIO_STR_LENGTH + 7] = rx->cal_oil_temperature;
+	buffer[AUDIO_STR_LENGTH + 8] = rx->cal_consumption;
 	// read only
-	buffer[41] = (uint8_t) ((rx->voltage & 0xFF00) >> 8);
-	buffer[42] = (uint8_t) ((rx->voltage & 0x00FF));
-	buffer[43] = rx->water_temperature;
-	buffer[44] = rx->ambient_temperature;
-	buffer[45] = rx->oil_temperature;
-	buffer[46] = (uint8_t) ((rx->consumption & 0xFF00) >> 8);
-	buffer[47] = (uint8_t) ((rx->consumption & 0x00FF));
-	buffer[48] = (uint8_t) ((rx->average_consumption & 0xFF00) >> 8);
-	buffer[49] = (uint8_t) ((rx->average_consumption & 0x00FF));
-	buffer[50] = (uint8_t) ((rx->range & 0xFF00) >> 8);
-	buffer[51] = (uint8_t) ((rx->range & 0x00FF));
-	buffer[52] = (uint8_t) ((rx->speed & 0xFF00) >> 8);
-	buffer[53] = (uint8_t) ((rx->speed & 0x00FF));
-	buffer[54] = (uint8_t) ((rx->average_speed & 0xFF00) >> 8);
-	buffer[55] = (uint8_t) ((rx->average_speed & 0x00FF));
-	buffer[56] = (uint8_t) ((rx->rpm & 0xFF00) >> 8);
-	buffer[57] = (uint8_t) ((rx->rpm & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 9] = (uint8_t) ((rx->voltage & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 10] = (uint8_t) ((rx->voltage & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 11] = rx->water_temperature;
+	buffer[AUDIO_STR_LENGTH + 12] = rx->ambient_temperature;
+	buffer[AUDIO_STR_LENGTH + 13] = rx->oil_temperature;
+	buffer[AUDIO_STR_LENGTH + 14] = (uint8_t) ((rx->consumption & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 15] = (uint8_t) ((rx->consumption & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 16] = (uint8_t) ((rx->average_consumption & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 17] = (uint8_t) ((rx->average_consumption & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 18] = (uint8_t) ((rx->range & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 19] = (uint8_t) ((rx->range & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 20] = (uint8_t) ((rx->speed & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 21] = (uint8_t) ((rx->speed & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 22] = (uint8_t) ((rx->average_speed & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 23] = (uint8_t) ((rx->average_speed & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 24] = (uint8_t) ((rx->rpm & 0xFF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 25] = (uint8_t) ((rx->rpm & 0x00FF));
 	
 	dbg(lvl_debug,"mfa: ");
 	for(i=0;i<size; i++){
@@ -454,28 +468,31 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	}
 	dbg(lvl_debug,"\n");
 	
-	for(i=0;i<32;i++){
+	for(i=0;i<AUDIO_STR_LENGTH;i++){
 		rx->radio_text[i] = buffer[i];
 	}
 	
-	rx->navigation_next_turn = buffer[32];
-	rx->distance_to_next_turn = ((long) buffer[33] << 24) + ((long) buffer[34] << 16) + ((long) buffer[35] << 8) + buffer[36];
+	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH];
+	rx->distance_to_next_turn = ((long) buffer[AUDIO_STR_LENGTH + 1] << 24) 
+		+ ((long) buffer[AUDIO_STR_LENGTH + 2] << 16) 
+		+ ((long) buffer[AUDIO_STR_LENGTH + 3] << 8) 
+		+ buffer[AUDIO_STR_LENGTH + 4];
 	//navigation active?
-	rx->cal_water_temperature = buffer[37];
-	rx->cal_voltage = buffer[38];
-	rx->cal_oil_temperature = buffer[39];
-	rx->cal_consumption = buffer[40];
+	rx->cal_water_temperature = buffer[AUDIO_STR_LENGTH + 5];
+	rx->cal_voltage = buffer[AUDIO_STR_LENGTH + 6];
+	rx->cal_oil_temperature = buffer[AUDIO_STR_LENGTH + 7];
+	rx->cal_consumption = buffer[AUDIO_STR_LENGTH + 8];
 	// read only
-	rx->voltage = ((uint16_t) buffer[41] << 8) + buffer[42];
-	rx->water_temperature = buffer[43];
-	rx->ambient_temperature = buffer[44];
-	rx->oil_temperature = buffer[45];
-	rx->consumption = ((uint16_t) buffer[46] << 8) + buffer[47];
-	rx->average_consumption = ((uint16_t) buffer[48] << 8) + buffer[49];
-	rx->range = ((uint16_t) buffer[50] << 8) + buffer[51];
-	rx->speed = ((uint16_t) buffer[52] << 8) + buffer[53];
-	rx->average_speed = ((uint16_t) buffer[54] << 8) + buffer[55];
-	rx->rpm = (uint16_t) (buffer[56] << 8) + buffer[57];
+	rx->voltage = ((uint16_t) buffer[AUDIO_STR_LENGTH + 9] << 8) + buffer[AUDIO_STR_LENGTH + 10];
+	rx->water_temperature = buffer[AUDIO_STR_LENGTH + 11];
+	rx->ambient_temperature = buffer[AUDIO_STR_LENGTH + 12];
+	rx->oil_temperature = buffer[AUDIO_STR_LENGTH + 13];
+	rx->consumption = ((uint16_t) buffer[AUDIO_STR_LENGTH + 14] << 8) + buffer[AUDIO_STR_LENGTH + 15];
+	rx->average_consumption = ((uint16_t) buffer[AUDIO_STR_LENGTH + 16] << 8) + buffer[AUDIO_STR_LENGTH + 17];
+	rx->range = ((uint16_t) buffer[AUDIO_STR_LENGTH + 18] << 8) + buffer[AUDIO_STR_LENGTH + 19];
+	rx->speed = ((uint16_t) buffer[AUDIO_STR_LENGTH + 20] << 8) + buffer[AUDIO_STR_LENGTH + 21];
+	rx->average_speed = ((uint16_t) buffer[22] << 8) + buffer[AUDIO_STR_LENGTH + 23];
+	rx->rpm = (uint16_t) (buffer[AUDIO_STR_LENGTH + 24] << 8) + buffer[AUDIO_STR_LENGTH + 25];
 	return 1;
 }
 
@@ -651,6 +668,35 @@ uint8_t tx_task(int device, struct connected_devices *cd){
 	return 0;
 }
 
+void process_i2c_data(struct i2c* this, struct connected_devices* cd){
+	uint8_t port = cd->addr;
+	if(port == calculateID("MFA")){
+		struct i2c_nav_data* navigation_data = get_navigation_data(this);
+		get_audio_data(this, tx_mfa->radio_text);
+		tx_mfa->distance_to_next_turn = navigation_data->distance_to_next_turn;
+		tx_mfa->navigation_next_turn = navigation_data->nav_status && (navigation_data->nav_status << 4);
+	}else if(port == calculateID("LSG")){
+		
+	}else if(port == calculateID("WFS")){
+		
+	}else if(port == calculateID("PWM")){
+		
+		
+		/*	
+		tx_pwm->pwm_freq = 10000;
+		tx_pwm->cal_temperature = 5;
+		tx_pwm->cal_voltage = 5;
+		tx_pwm->time_value = 10;
+		tx_pwm->water_value = 35;
+		*/	
+		tx_pwm->pwm_freq += 500;
+		if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
+	}else if(port == calculateID("V2V")){
+		
+	}else{
+		dbg(lvl_error, "Invalid i2c data\n");
+	}
+}
 
 
 //*////////////////////////////////////////////////////////////////////////
@@ -678,20 +724,17 @@ void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 static void 
 i2c_task(struct i2c *this){
 
-	int i;
 	int num_devices = g_list_length(this->connected_devices);
 	dbg(lvl_info, "%i connected devices\n", num_devices);
 	if(this->device){
 		do{
 			if(this->connected_devices->data){
 				struct connected_devices* cd = this->connected_devices->data;
-				select_slave(this->device, cd->addr);
-				rx_task(this->device, cd);
-						
-				tx_pwm->pwm_freq += 500;
-				if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
-				
-				tx_task(this->device, cd);
+				if(0==select_slave(this->device, cd->addr)){
+					rx_task(this->device, cd);
+					tx_task(this->device, cd);
+					process_i2c_data(this, cd);
+				}
 				if(this->connected_devices->next)
 					this->connected_devices = this->connected_devices->next;
 				else
@@ -699,9 +742,9 @@ i2c_task(struct i2c *this){
 			}
 		}
 		while(num_devices--);
+	
+		
 	}
-	get_navigation_data(this);
-
 }
 
 static void 
@@ -709,12 +752,7 @@ i2c_main(struct i2c *this, struct navit *nav){
 	
 	this->callback = callback_new_1(callback_cast(i2c_task), this);
 	this->timeout = event_add_timeout(500, 1, this->callback);
-/*	tx_pwm->pwm_freq = 10000;
-	tx_pwm->cal_temperature = 5;
-	tx_pwm->cal_voltage = 5;
-	tx_pwm->time_value = 10;
-	tx_pwm->water_value = 35;
-*/	
+
 	return;
 }
 
