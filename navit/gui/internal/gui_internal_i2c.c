@@ -34,7 +34,7 @@
 #include "gui_internal_command.h"
 #ifdef USE_I2C 
 #include "gui_internal_i2c.h"
-#include <plugin/i2c/i2c.h>
+#include "../../plugin/i2c/i2c.h"
 #endif
 /*
 static void
@@ -125,7 +125,7 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
 #ifdef USE_I2C 
     dbg (lvl_error, "Showing rootlist\n");
 #endif    
-
+	int col_cnt = 0;
     gui_internal_prune_menu_count (this, 1, 0);
     wb = gui_internal_menu (this, "I2C Config");
     wb->background = this->background;
@@ -135,22 +135,37 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
 
     tbl = gui_internal_widget_table_new (this, gravity_left_top | flags_fill | flags_expand | orientation_vertical, 1);
     gui_internal_widget_append (w, tbl);
-/*
-    while(connected_devices) {
-      struct i2c_device * i2cd=connected_devices->data;
-      
-      connected_devices=g_list_next(connected_devices);
-	  row = gui_internal_widget_table_row_new (this, gravity_left | flags_fill | orientation_horizontal);
-	  gui_internal_widget_append (tbl, row);
-	  wbm = gui_internal_button_new_with_callback (this,
-						     pl->name,image_new_s (this, (i2cd->icon) ? (i2cd->icon) : ("gui_ok")),
-						     gravity_left_center |
-						     orientation_horizontal | flags_fill, i2c_show_device, NULL);
+//*
+#ifdef USE_I2C
+	struct i2c* i2c_plugin = get_i2c_plugin();
+	dbg(lvl_error, "i2cplugin: %p\n", i2c_plugin);
+	if(i2c_plugin){
+		dbg(lvl_error, "i2cplugin: %p\n", i2c_plugin);
+		GList *conn_dev = i2c_plugin->connected_devices;
+			if(conn_dev->data){
+				dbg(lvl_error, "connected_devices: %p\n", conn_dev);
+				struct connected_devices* i2cd=conn_dev->data;
+				while(i2cd) {
+				  i2cd=conn_dev->data;
+				  dbg(lvl_error, "connected_devices: %p\n", i2cd);
+				  conn_dev=g_list_next(conn_dev);
+				  col_cnt++;
+				  if(col_cnt==2){
+					  col_cnt=0;
+					  row = gui_internal_widget_table_row_new (this, gravity_left | flags_fill | orientation_horizontal);
+					  gui_internal_widget_append (tbl, row);
+				  }
+				  wbm = gui_internal_button_new_with_callback (this,
+										 i2cd->name,image_new_s (this, (i2cd->icon) ? (i2cd->icon) : ("gui_ok")),
+										 gravity_left_center |
+										 orientation_horizontal | flags_fill, gui_internal_i2c_show_device, i2cd);
 
-	  gui_internal_widget_append (row, wbm);
-	  wbm->c.x = i2cd->name;
-      }
-*/
+				  gui_internal_widget_append (row, wbm);
+				  }
+			  }
+	  }
+#endif 
+//*/
     gui_internal_menu_render (this);
 
 }
@@ -165,7 +180,7 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
  *
  * Display a list of the tracks in the current playlist
  *
- * /
+ */
 void
 gui_internal_i2c_show_device (struct gui_priv *this, struct widget *wm, void *data)
 {
@@ -179,12 +194,12 @@ gui_internal_i2c_show_device (struct gui_priv *this, struct widget *wm, void *da
     w = gui_internal_box_new (this, gravity_top_center | orientation_vertical | flags_expand | flags_fill);
     gui_internal_widget_append (wb, w);
 #else
-    
-    wb = gui_internal_menu (this, g_strdup_printf ("I2C > %s", NULL));
+    struct connected_devices* i2cd = (struct connected_devices*) data;
+    wb = gui_internal_menu (this, g_strdup_printf ("I2C > %s", i2cd->name));
     wb->background = this->background;
     w = gui_internal_box_new (this, gravity_top_center | orientation_vertical | flags_expand | flags_fill);
     gui_internal_widget_append (wb, w);
-    gui_internal_widget_append (w, gui_internal_media_playlist_toolbar (this));
+    
     tbl = gui_internal_widget_table_new (this, gravity_left_top | flags_fill | flags_expand | orientation_vertical, 1);
     gui_internal_widget_append (w, tbl);
  /*   while(tracks) {
@@ -201,10 +216,9 @@ gui_internal_i2c_show_device (struct gui_priv *this, struct widget *wm, void *da
 						NULL);
 		wbm->c.x = track->index;
 		gui_internal_widget_append (row, wbm);
-    }* /
+    }*/
 #endif
-	g_list_free_full(tracks, tracks_free);
     gui_internal_menu_render (this);
 }
-*/
+
 //#endif

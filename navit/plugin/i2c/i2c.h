@@ -207,5 +207,6 @@ rx_mfa_t *rx_mfa = NULL;
 tx_mfa_t *tx_mfa = NULL;
 
 void read_i2c_frame(int device, uint8_t* data, uint8_t size);
+struct i2c* get_i2c_plugin(void);
 
 #endif

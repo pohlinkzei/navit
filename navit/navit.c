@@ -75,6 +75,9 @@
 #ifdef HAVE_API_WIN32_CE
 #include "libc.h"
 #endif
+#ifdef USE_I2C
+//#include "plugin/i2c/i2c.h"
+#endif
 
 /* define string for bookmark handling */
 #define TEXTFILE_COMMENT_NAVI_STOPPED "# navigation stopped\n"

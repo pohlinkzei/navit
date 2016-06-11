@@ -680,15 +680,7 @@ void process_i2c_data(struct i2c* this, struct connected_devices* cd){
 	}else if(port == calculateID("WFS")){
 		
 	}else if(port == calculateID("PWM")){
-		
-		
-		/*	
-		tx_pwm->pwm_freq = 10000;
-		tx_pwm->cal_temperature = 5;
-		tx_pwm->cal_voltage = 5;
-		tx_pwm->time_value = 10;
-		tx_pwm->water_value = 35;
-		*/	
+
 		tx_pwm->pwm_freq += 500;
 		if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
 	}else if(port == calculateID("V2V")){
@@ -770,13 +762,16 @@ i2c_init(struct i2c *this, struct navit *nav)
 		dbg(lvl_error, "No I2C Devices found\n");
 }
 
-
+struct i2c* get_i2c_plugin(void){
+	return i2c_plugin;
+}
 
 void
 plugin_init(void)
 {
 	struct attr callback; 
 	i2c_plugin = g_new0(struct i2c, 1);
+	dbg(lvl_error, "i2cplugin: %p\n", i2c_plugin);
 	callback.type=attr_callback;
 	callback.u.callback=callback_new_attr_1(callback_cast(i2c_init),attr_navit,i2c_plugin);
 	config_add_attr(config, &callback);
