@@ -2,6 +2,7 @@
 #define I2C_H
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/ioctl.h>
@@ -50,19 +51,20 @@
 #include <audio.h>
 #endif
 
-#define AUDIO_STR_LENGTH 32
+#define AUDIO_STR_LENGTH 38
 #define CRC_POLYNOME 0xAB
 char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
 char result[6] = {0,};
 unsigned char i2ctxdata[128] = {0,};
 unsigned char i2crxdata[128] = {0,};
 struct i2c *i2c_plugin;
-
+/*
 typedef unsigned char uint8_t;
 typedef unsigned short int uint16_t;
 typedef signed char int8_t;
 typedef signed short int int16_t;
-
+typedef unsigned long uint32_t;
+*/
 struct i2c_nav_data{
 	int distance_to_next_turn;
 	int nav_status;
@@ -106,19 +108,19 @@ struct connected_devices{
 };
 
 typedef struct txdataLSG{
-	bool AL;
-	bool TFL;
-	bool ZV;
-	bool LED;
+	uint8_t AL;
+	uint8_t TFL;
+	uint8_t ZV;
+	uint8_t LED;
 	uint8_t time_in;
 	uint8_t time_out;
 }tx_lsg_t;
 	
 typedef struct rxdataLSG{
-	bool AL;
-	bool TFL;
-	bool ZV;
-	bool LED;
+	uint8_t AL;
+	uint8_t TFL;
+	uint8_t ZV;
+	uint8_t LED;
 	uint8_t time_in;
 	uint8_t time_out;
 }rx_lsg_t;
@@ -142,9 +144,10 @@ typedef struct rxdataWFS{
 }rx_wfs_t;
 
 typedef struct txdataMFA{
+	uint32_t distance_to_next_turn;
 	uint8_t radio_text[AUDIO_STR_LENGTH];
+	
 	uint8_t navigation_next_turn;
-	long distance_to_next_turn;
 	//navigation active?
 	uint8_t cal_water_temperature;
 	uint8_t cal_voltage;
@@ -152,11 +155,45 @@ typedef struct txdataMFA{
 	uint8_t cal_consumption;	
 	// other values from pwm module?
 }tx_mfa_t;
+/*
+typedef struct txdataMFA{
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;
+	uint32_t distance_to_next_turn;
+	//navigation active?
+	uint8_t cal_water_temperature;
+	uint8_t cal_voltage;
+	uint8_t cal_oil_temperature;
+	uint8_t cal_consumption;	
+	// other values from pwm module?
+}tx_mfa_t;*/
 	
+typedef struct rxdataMFA{
+	
+	uint32_t distance_to_next_turn;
+	uint16_t voltage;
+	uint16_t consumption;
+	uint16_t average_consumption;
+	uint16_t range;
+	uint16_t speed;
+	uint16_t average_speed;
+	uint16_t rpm;
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;	//navigation active?
+	uint8_t cal_water_temperature;
+	uint8_t cal_voltage;
+	uint8_t cal_oil_temperature;
+	uint8_t cal_consumption;
+	// read only
+	int8_t water_temperature;
+	int8_t ambient_temperature;
+	int8_t oil_temperature;
+}rx_mfa_t;
+/*
 typedef struct rxdataMFA{
 	uint8_t radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;
-	long distance_to_next_turn;
+	uint32_t distance_to_next_turn;
 	//navigation active?
 	uint8_t cal_water_temperature;
 	uint8_t cal_voltage;
@@ -167,14 +204,14 @@ typedef struct rxdataMFA{
 	int8_t water_temperature;
 	int8_t ambient_temperature;
 	int8_t oil_temperature;
-	int consumption;
-	int average_consumption;
-	int range;
-	int speed;
-	int average_speed;
-	int rpm;
+	uint16_t consumption;
+	uint16_t average_consumption;
+	uint16_t range;
+	uint16_t speed;
+	uint16_t average_speed;
+	uint16_t rpm;
 }rx_mfa_t;
-
+*/
 typedef struct txdataPWM{
 	uint16_t pwm_freq;
 	uint8_t cal_temperature;

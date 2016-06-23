@@ -74,12 +74,12 @@ uint8_t crc8(uint8_t crc, uint8_t data){
 }
 
 uint8_t calculateCRC8(uint8_t crc, uint8_t* data, uint8_t len){
-	dbg(lvl_debug,"crc: %p, %i\n",data, crc);
+	//dbg(lvl_debug,"crc: %p, %i\n",data, crc);
 	while(len-->0){
 		//dbg(lvl_debug,"crc: %p, %i\n",data, crc);
 		crc = crc8(crc, *data++);
 	}
-	dbg(lvl_debug,"\ncrc: %i\n",crc);
+	//dbg(lvl_debug,"\ncrc: %i\n",crc);
 	return crc;
 }
 
@@ -147,7 +147,7 @@ int init_i2c_devices(struct i2c *this){
 			}else{
 				res = i2c_smbus_read_byte(this->device);
 				if (res >= 0){
-					dbg(lvl_debug,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
+					dbg(lvl_info,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
 					struct connected_devices *cd = g_new0(struct connected_devices, 1);
 					cd->addr = port;
 					if(port == calculateID("MFA")){
@@ -221,6 +221,7 @@ int init_i2c_devices(struct i2c *this){
 						cd->icon = "gui_inactive";
 						return 0;
 					}
+					dbg(lvl_info, "Appending a Device %p\n", cd);
 					this->connected_devices = g_list_append(this->connected_devices, cd);
 				}
 			}
@@ -236,6 +237,8 @@ void get_audio_data(struct i2c* this, uint8_t audio_str[AUDIO_STR_LENGTH]){
 	strcpy(str, audio_get_current_track(this->nav));
 	strcat(str, " - ");
 	strcat(str, audio_get_current_playlist(this->nav));
+#else
+	sprintf(str, "No Audio Plugin found!");
 #endif
 for (i=0; i< AUDIO_STR_LENGTH; i++){
 		audio_str[i] = str[i];
@@ -384,8 +387,9 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_mfa_t));
 		return 0;
 	}
+	char str[2560] = {0,};
 	tx_mfa_t* tx = (tx_mfa_t*) tx_data;
-	dbg(lvl_debug,"\nserialize_mfa_txdata\n");
+	dbg(lvl_debug,"\nserialize_mfa_txdata:%i\n%s\n%i\n%i\n%i\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->cal_water_temperature, tx->cal_voltage, tx->cal_oil_temperature, tx->cal_consumption);
 	uint8_t i;
 	for(i=0;i<32;i++){
 		buffer[i] = tx->radio_text[i];
@@ -400,11 +404,13 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 	buffer[38] = tx->cal_voltage;
 	buffer[39] = tx->cal_oil_temperature;
 	buffer[40] = tx->cal_consumption;	
-	dbg(lvl_debug,"mfa: ");
+	sprintf(str,"mfa:");
 	for(i=0;i<size; i++){
-		dbg(lvl_debug,"0x%02X ",buffer[i]);
+		char buf[6] = {0,};
+		sprintf(buf, " 0x%02X", buffer[i]);
+		strcat(str, buf);
 	}
-	dbg(lvl_debug,"\n");
+	dbg(lvl_debug,"%s\n", str);
 	return 1;
 }
 
@@ -413,7 +419,8 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 		return 0;
 	}
 	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
-	dbg(lvl_debug,"\nserialize_mfa_rxdata\n");
+	dbg(lvl_debug,"\nserialize_mfa_rxdata:%i\n%s\n%i\n%i\n%i\n%i\n",size,rx->radio_text, rx->navigation_next_turn, rx->cal_water_temperature, rx->cal_voltage, rx->cal_oil_temperature, rx->cal_consumption);
+	char str[2560] = {0,};
 	uint8_t i;
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
 		buffer[i] = rx->radio_text[i];
@@ -447,11 +454,13 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 	buffer[AUDIO_STR_LENGTH + 24] = (uint8_t) ((rx->rpm & 0xFF00) >> 8);
 	buffer[AUDIO_STR_LENGTH + 25] = (uint8_t) ((rx->rpm & 0x00FF));
 	
-	dbg(lvl_debug,"mfa: ");
+	sprintf(str,"mfa:");
 	for(i=0;i<size; i++){
-		dbg(lvl_debug,"0x%02X ",buffer[i]);
+		char buf[6] = {0,};
+		sprintf(buf, " 0x%02X", buffer[i]);
+		strcat(str, buf);
 	}
-	dbg(lvl_debug,"\n");
+	dbg(lvl_debug,"%s\n", str);
 	return 1;
 }
 
@@ -461,12 +470,15 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	}
 	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
 	uint8_t i;
-	dbg(lvl_debug,"\ndeserialize_mfa_rxdata\n");
-	dbg(lvl_debug,"mfa: ");
+	char str[2560] = {0,};
+	dbg(lvl_debug,"\ndeserialize_mfa_rxdata:%i\n", size);
+	sprintf(str,"mfa:");
 	for(i=0;i<size; i++){
-		dbg(lvl_debug,"0x%02X ",buffer[i]);
+		char buf[6] = {0,};
+		sprintf(buf, " 0x%02X", buffer[i]);
+		strcat(str, buf);
 	}
-	dbg(lvl_debug,"\n");
+	dbg(lvl_debug,"%s\n", str);
 	
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
 		rx->radio_text[i] = buffer[i];
@@ -506,29 +518,51 @@ uint8_t serialize_lsg_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 		return 0;
 	}
 	tx_lsg_t* tx = (tx_lsg_t*) tx_data;
-	dbg(lvl_debug,"\nserialize_lsg_txdata %p\n", tx);
-	//dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug,"serialize_lsg_txdata %p\n", tx);
+	buffer[0] =  tx->AL;
+	buffer[1] =  tx->TFL;
+	buffer[2] =  tx->ZV;
+	buffer[3] =  tx->LED;
+	buffer[4] =  tx->time_in;
+	buffer[5] =  tx->time_out;
+	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", tx->AL, tx->TFL, tx->ZV, tx->LED, tx->time_in, tx->time_out );
 	return 1;
 }
 
 uint8_t serialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(rx_lsg_t)){
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(rx_lsg_t));
 		return 0;
 	}
 	rx_lsg_t* rx = (rx_lsg_t*) rx_data;
-	dbg(lvl_debug,"\nserialize_lsg_rxdata %p\n", rx);
-	//dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
-	
+	dbg(lvl_debug,"serialize_lsg_rxdata %p\n", rx);
+	buffer[0] =  rx->AL;
+	buffer[1] =  rx->TFL;
+	buffer[2] =  rx->ZV;
+	buffer[3] =  rx->LED;
+	buffer[4] =  rx->time_in;
+	buffer[5] =  rx->time_out;
+	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", rx->AL, rx->TFL, rx->ZV, rx->LED, rx->time_in, rx->time_out );
 	return 1;
 }
 
 uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(rx_lsg_t)){
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_lsg_t));
 		return 0;
 	}
 	rx_lsg_t* rx = (rx_lsg_t*) rx_data;
-	dbg(lvl_debug,"\ndeserialize_lsg_rxdata %p\n", rx);
-	//dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	dbg(lvl_debug,"deserialize_lsg_rxdata %p\n", rx);
+	rx->AL = buffer[0];
+	rx->TFL = buffer[1];
+	rx->ZV = buffer[2];
+	rx->LED = buffer[3];
+	rx->time_in = buffer[4];
+	rx->time_out = buffer[5];
+	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", rx->AL, rx->TFL, rx->ZV, rx->LED, rx->time_in, rx->time_out );
 	return 1;
 }
 
@@ -613,7 +647,7 @@ uint8_t rx_task(int device, struct connected_devices* cd){
 	uint8_t i2crxdata[rx_size+1];
 	if(!device) return 1;
 	dbg(lvl_debug,"Read i2c\n");
-	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(rx_pwm_t), rx_size);
+	dbg(lvl_debug,"rx_t: %i, \n", rx_size);
 	
 	read_i2c_frame(device, i2crxdata, rx_size+1);
 	
@@ -632,7 +666,7 @@ uint8_t rx_task(int device, struct connected_devices* cd){
 			}
 			if(ok){
 				dbg(lvl_debug,"//we got new data -> replace the old object \n");
-				if(!deserialize_pwm_rxdata(cd->rx_data, rx_size, i2crxdata)){
+				if(!cd->deserialize_rx(cd->rx_data, rx_size, i2crxdata)){
 					dbg(lvl_debug,"failed to replace\n");
 					return 1;
 				}else{
@@ -653,8 +687,8 @@ uint8_t tx_task(int device, struct connected_devices *cd){
 	uint8_t tx_size = cd->tx_size;	
 	uint8_t i2ctxdata[tx_size+1];
 	if(!device) return 1;
-	dbg(lvl_debug,"rx_pwm_t: %i, rx_pwm: %i\n",sizeof(tx_pwm_t), tx_size);	
-	dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
+	dbg(lvl_debug,"tx_t: %i\n", tx_size);	
+	//dbg(lvl_debug,"// serialize tx object %i\n", tx_size);
 	if(cd->serialize_tx(cd->tx_data, tx_size, i2ctxdata)){
 		dbg(lvl_debug,"//calculate CRC and append to i2ctxdata\n");
 		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
@@ -670,13 +704,22 @@ uint8_t tx_task(int device, struct connected_devices *cd){
 
 void process_i2c_data(struct i2c* this, struct connected_devices* cd){
 	uint8_t port = cd->addr;
+	dbg(lvl_info,"Process data on addr: 0x%02X\n",port);
 	if(port == calculateID("MFA")){
+		
 		struct i2c_nav_data* navigation_data = get_navigation_data(this);
 		get_audio_data(this, tx_mfa->radio_text);
 		tx_mfa->distance_to_next_turn = navigation_data->distance_to_next_turn;
 		tx_mfa->navigation_next_turn = navigation_data->nav_status && (navigation_data->nav_status << 4);
+		dbg(lvl_info,"Send NAV data: %i, %i\n", tx_mfa->distance_to_next_turn,tx_mfa->navigation_next_turn);
 	}else if(port == calculateID("LSG")){
-		
+		tx_lsg->AL = 1;
+		tx_lsg->TFL = 0;
+		tx_lsg->ZV = 0;
+		tx_lsg->time_in++;
+		if(tx_lsg->time_in > 160) tx_lsg->time_in = 0;
+		tx_lsg->time_out--;
+		if(tx_lsg->time_out == 0) tx_lsg->time_out = 200;
 	}else if(port == calculateID("WFS")){
 		
 	}else if(port == calculateID("PWM")){
@@ -704,7 +747,7 @@ void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 			}else{
 				data[i] = i2c_smbus_read_byte(device);
 			}
-			dbg(lvl_debug,"Read %i: 0x%02X 0x%02X\n", i, (uint8_t) data[i], device);
+			dbg(lvl_debug,"Read %i: 0x%02X\n", i, (uint8_t) data[i]);
 		}
 }
 }
@@ -715,11 +758,11 @@ void read_i2c_frame(int device, uint8_t* data, uint8_t size){
 
 static void 
 i2c_task(struct i2c *this){
-
+	this->connected_devices = g_list_first(this->connected_devices);
 	int num_devices = g_list_length(this->connected_devices);
 	dbg(lvl_info, "%i connected devices\n", num_devices);
 	if(this->device){
-		do{
+		while(num_devices--){
 			if(this->connected_devices->data){
 				struct connected_devices* cd = this->connected_devices->data;
 				if(0==select_slave(this->device, cd->addr)){
@@ -733,7 +776,7 @@ i2c_task(struct i2c *this){
 					break;
 			}
 		}
-		while(num_devices--);
+		
 	
 		
 	}

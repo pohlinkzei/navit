@@ -137,7 +137,7 @@ gui_internal_i2c_devicelist (struct gui_priv *this, struct widget *wm, void *dat
     gui_internal_widget_append (w, tbl);
 //*
 #ifdef USE_I2C
-	struct i2c* i2c_plugin = get_i2c_plugin();
+	struct i2c* i2c_plugin = NULL;//get_i2c_plugin();
 	dbg(lvl_error, "i2cplugin: %p\n", i2c_plugin);
 	if(i2c_plugin){
 		dbg(lvl_error, "i2cplugin: %p\n", i2c_plugin);
