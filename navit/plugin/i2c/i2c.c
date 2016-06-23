@@ -930,9 +930,9 @@ i2c_service_new(struct service_methods *
 	check_ioctl(i2c_plugin->device);
 	if(init_i2c_devices(i2c_plugin)){
 		i2c_plugin->task = callback_new_1 (callback_cast (i2c_task), i2c_plugin);
-    i2c_plugin->timeout = event_add_timeout(1000, 1,  i2c_plugin->task);
-    i2c_plugin->callback = callback_new_1 (callback_cast (i2c_task), i2c_plugin);
-    i2c_plugin->timeout = event_add_timeout(10000, 1,  i2c_plugin->callback);
+		i2c_plugin->timeout = event_add_timeout(1000, 1,  i2c_plugin->task);
+		i2c_plugin->callback = callback_new_1 (callback_cast (i2c_task), i2c_plugin);
+		i2c_plugin->timeout = event_add_timeout(10000, 1,  i2c_plugin->callback);
 		dbg (lvl_debug,  "Callbacks created successfully\n");
 	}else{
 		dbg(lvl_error, "No I2C Devices found\n");
