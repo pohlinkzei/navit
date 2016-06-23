@@ -525,8 +525,8 @@ uint8_t serialize_lsg_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 	buffer[3] =  tx->LED;
 	buffer[4] =  tx->time_in;
 	buffer[5] =  tx->time_out;
-	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
-	dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", tx->AL, tx->TFL, tx->ZV, tx->LED, tx->time_in, tx->time_out );
+	//dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	//dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", tx->AL, tx->TFL, tx->ZV, tx->LED, tx->time_in, tx->time_out );
 	return 1;
 }
 
@@ -543,8 +543,8 @@ uint8_t serialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 	buffer[3] =  rx->LED;
 	buffer[4] =  rx->time_in;
 	buffer[5] =  rx->time_out;
-	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
-	dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", rx->AL, rx->TFL, rx->ZV, rx->LED, rx->time_in, rx->time_out );
+	//dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	//dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", rx->AL, rx->TFL, rx->ZV, rx->LED, rx->time_in, rx->time_out );
 	return 1;
 }
 
@@ -561,7 +561,7 @@ uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	rx->LED = buffer[3];
 	rx->time_in = buffer[4];
 	rx->time_out = buffer[5];
-	dbg(lvl_debug,"lsg: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	dbg(lvl_debug,"****LSG:****\n 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
 	dbg(lvl_debug, "AL: %i\nTFL: %i\nZV: %i\nLED: %i\nIn: %i\nout: %i\n\n", rx->AL, rx->TFL, rx->ZV, rx->LED, rx->time_in, rx->time_out );
 	return 1;
 }
@@ -610,6 +610,65 @@ uint8_t serialize_v2v_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 	if(size != sizeof(tx_v2v_t)){
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_v2v_t));
 		return 0;
+	}
+	tx_v2v_t* tx = (tx_v2v_t*) tx_data;
+	dbg(lvl_info,"\nserialize_v2v_txdata\n");
+	dbg(lvl_info,"v2v:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\n",tx->pwm_freq, tx->cal_temperature, tx->cal_voltage, tx->water_value, tx->time_value);
+		buffer[0] = (uint8_t) ((tx->pwm_freq & 0xFF00) >> 8);
+	buffer[1] = (uint8_t) (tx->pwm_freq & 0x00FF);
+	buffer[2] = tx->cal_temperature;
+	buffer[3] = tx->cal_voltage;
+	buffer[4] = tx->water_value;
+	buffer[5] = tx->time_value;
+	dbg(lvl_info,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+	return 1;
+}
+
+uint8_t serialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
+	if(size != sizeof(rx_v2v_t)){
+		return 0;
+	}
+	rx_v2v_t* rx = (rx_v2v_t*) rx_data;
+	dbg(lvl_info,"\nserialize_v2v_rxdata\n");
+	dbg(lvl_info,"v2v:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
+	buffer[0] = (uint8_t) ((rx->pwm_freq & 0xFF00) >> 8);
+	buffer[1] = (uint8_t) (rx->pwm_freq & 0x00FF);
+	buffer[2] = rx->cal_temperature;
+	buffer[3] = rx->cal_voltage;
+	buffer[4] = rx->water_value;
+	buffer[5] = rx->time_value;
+	buffer[6] = (uint8_t) ((rx->vbat & 0xFF00) >> 8);
+	buffer[7] = (uint8_t) (rx->vbat & 0x00FF);
+	buffer[8] = rx->water_temp;
+	buffer[9] = rx->fet_temp;
+	dbg(lvl_info,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	
+	return 1;
+}
+
+uint8_t deserialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
+	if(size != sizeof(rx_v2v_t)){
+		return 0;
+	}
+	rx_v2v_t* rx = (rx_v2v_t*) rx_data;
+	dbg(lvl_info,"\ndeserialize_v2v_rxdata\n");
+	dbg(lvl_info,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	rx->pwm_freq = ((uint16_t) (buffer[0]) << 8) + buffer[1];
+	rx->cal_temperature = buffer[2];
+	rx->cal_voltage = buffer[3];
+	rx->water_value = buffer[4];
+	rx->time_value = buffer[5];
+	rx->vbat = ((uint16_t) (buffer[6]) << 8) + buffer[7];
+	rx->water_temp = buffer[8];
+	rx->fet_temp = buffer[9];
+	dbg(lvl_info,"v2v:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
+	return 1;
+}
+/*
+uint8_t serialize_v2v_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]){
+	if(size != sizeof(tx_v2v_t)){
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_v2v_t));
+		return 0;
 	}tx_v2v_t* tx = (tx_v2v_t*) tx_data;
 	dbg(lvl_debug,"\nserialize_v2v_txdata %p\n", tx);
 	//dbg(lvl_debug,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
@@ -633,10 +692,22 @@ uint8_t deserialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	}
 	rx_v2v_t* rx = (rx_v2v_t*) rx_data;
 	dbg(lvl_debug,"\ndeserialize_v2v_rxdata %p\n", rx);
+	
+	dbg(lvl_debug,"PWM: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
+	rx->pwm_freq = ((uint16_t) (buffer[0]) << 8) + buffer[1];
+	rx->cal_temperature = buffer[2];
+	rx->cal_voltage = buffer[3];
+	rx->water_value = buffer[4];
+	rx->time_value = buffer[5];
+	rx->vbat = ((uint16_t) (buffer[6]) << 8) + buffer[7];
+	rx->water_temp = buffer[8];
+	rx->fet_temp = buffer[9];
+	dbg(lvl_debug,"****V2V:****\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
+	return 1;
 	//dbg(lvl_debug,"v2v: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
-
+//*/
 //*////////////////////////////////////////////////////////////////////////
 // GENERIC I2C FUNCTIONS 
 ///////////////////////////////////////////////////////////////////////////
@@ -727,7 +798,8 @@ void process_i2c_data(struct i2c* this, struct connected_devices* cd){
 		tx_pwm->pwm_freq += 500;
 		if(tx_pwm->pwm_freq > 30000) tx_pwm->pwm_freq = 1000;
 	}else if(port == calculateID("V2V")){
-		
+		tx_v2v->pwm_freq += 50;
+		if(tx_v2v->pwm_freq > 1000) tx_v2v->pwm_freq = 100;
 	}else{
 		dbg(lvl_error, "Invalid i2c data\n");
 	}
@@ -766,9 +838,11 @@ i2c_task(struct i2c *this){
 			if(this->connected_devices->data){
 				struct connected_devices* cd = this->connected_devices->data;
 				if(0==select_slave(this->device, cd->addr)){
+					dbg(lvl_info, "\nstart PROCESS DATA: 0x%02X, %s\n\n", cd->addr, cd->name);
 					rx_task(this->device, cd);
 					tx_task(this->device, cd);
 					process_i2c_data(this, cd);
+					dbg(lvl_info, "\nend PROCESS DATA: 0x%02X, %s\n\n", cd->addr, cd->name);
 				}
 				if(this->connected_devices->next)
 					this->connected_devices = this->connected_devices->next;
@@ -808,7 +882,30 @@ i2c_init(struct i2c *this, struct navit *nav)
 struct i2c* get_i2c_plugin(void){
 	return i2c_plugin;
 }
-
+/*
+static struct i2c *
+i2c_new(struct navit *nav, struct service_methods *meth,
+        struct attr **attrs)
+{
+	struct attr callback; 
+	i2c_plugin = g_new0(struct i2c, 1);
+	dbg(lvl_error, "i2cplugin: %p\n", i2c_plugin);
+	callback.type=attr_callback;
+	callback.u.callback=callback_new_attr_1(callback_cast(i2c_init),attr_navit,i2c_plugin);
+	config_add_attr(config, &callback);
+	dbg(lvl_info,"hello i2c\n\n");
+    navit_add_callback(nav, callback_new_attr_1(callback_cast(i2c_init), attr_graphics_ready, i2c_plugin));
+    return (struct osd_priv *) i2c_plugin;
+}
+*/
+/**
+ * @brief	The plugin entry point
+ *
+ * @return	nothing
+ *
+ * The plugin entry point
+ *
+ */
 void
 plugin_init(void)
 {
@@ -818,6 +915,5 @@ plugin_init(void)
 	callback.type=attr_callback;
 	callback.u.callback=callback_new_attr_1(callback_cast(i2c_init),attr_navit,i2c_plugin);
 	config_add_attr(config, &callback);
-	dbg(lvl_debug,"hello i2c\n\n");
+	dbg(lvl_info,"hello i2c\n\n");
 }
-

@@ -126,14 +126,42 @@ typedef struct rxdataLSG{
 }rx_lsg_t;
 
 typedef struct txdataV2V{
-	uint8_t time;
-	uint8_t temperature;
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
 }tx_v2v_t;
 	
 typedef struct rxdataV2V{
-	uint8_t time;
-	uint8_t temperature;
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+	uint16_t vbat;
+	uint8_t water_temp;
+	uint8_t fet_temp;
 }rx_v2v_t;
+
+typedef struct txdataPWM{
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+}tx_pwm_t;
+	
+typedef struct rxdataPWM{
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+	uint16_t vbat;
+	uint8_t water_temp;
+	uint8_t fet_temp;
+}rx_pwm_t;
 
 typedef struct txdataWFS{
 	uint8_t time;
@@ -212,24 +240,7 @@ typedef struct rxdataMFA{
 	uint16_t rpm;
 }rx_mfa_t;
 */
-typedef struct txdataPWM{
-	uint16_t pwm_freq;
-	uint8_t cal_temperature;
-	uint8_t cal_voltage;
-	uint8_t water_value;
-	uint8_t time_value;
-}tx_pwm_t;
-	
-typedef struct rxdataPWM{
-	uint16_t pwm_freq;
-	uint8_t cal_temperature;
-	uint8_t cal_voltage;
-	uint8_t water_value;
-	uint8_t time_value;
-	uint16_t vbat;
-	uint8_t water_temp;
-	uint8_t fet_temp;
-}rx_pwm_t;
+
 
 
 rx_lsg_t *rx_lsg = NULL;
