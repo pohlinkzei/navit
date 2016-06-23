@@ -27,7 +27,7 @@ extern "C" {
  
 struct service_priv;
 
-struct service_methods{
+struct service_methods {
 	int (*plugin)(struct service_priv *priv);
 	int (*set_attr)(struct service_priv *priv, struct attr *attr);
 	int (*get_attr)(struct service_priv *priv,enum attr_type type, struct attr *attr);
@@ -42,7 +42,7 @@ struct service {
 };
 
 
-struct service* service_new(struct navit* navit, struct attr** attrs, struct attr* parent);
+struct service* service_new(struct attr* parent, struct attr** attrs);
 void service_destroy(struct service *this_);
 int service_get_attr(struct service *this_, enum attr_type type, struct attr *attr, struct attr_iter *iter);
 int service_set_attr(struct service *this_, struct attr *attr);

@@ -135,28 +135,32 @@ service_remove_attr(struct service *this_, struct attr *attr)
  * @return The newly created service object
  */
 struct service *
-service_new(struct navit* navit, struct attr** attrs, struct attr* parent)
+service_new(struct attr* parent, struct attr** attrs)
 {
 	struct service *this_;
-	struct attr* type;
+	struct attr* attr;
+	
+	
+	
 	struct service_priv *(*servicetype_new) (struct service_methods *
 						 meth,
-						 struct callback_list *
-						 cbl,
-						 struct attr ** attrs);
+						 struct callback_list *cbl,
+						 struct attr ** attrs,
+						struct attr *parent);
 
 	dbg(lvl_debug, "enter\n");
 
-	type = attr_search(attrs, NULL, attr_type);
-	if (!type) {
-		dbg(lvl_error, "incomplete service definition: missing type attribute!\n");
-		return NULL;
+	attr=attr_search(attrs, NULL, attr_type);
+	if (! attr) {
+			dbg(lvl_error, "incomplete service definition: missing type attribute!\n");
+			return NULL;
 	}
-
-	servicetype_new = plugin_get_service_type(type->u.str);
-	if(!servicetype_new){
-		dbg(lvl_error, "Wrong type: %s\n", type->u.str);
-		return NULL;
+	dbg(lvl_error,"type='%s'\n", attr->u.str);
+	servicetype_new=plugin_get_service_type(attr->u.str);
+	dbg(lvl_error,"new=%p\n", service_new);
+	if (! servicetype_new) {
+			dbg(lvl_error,"wrong type '%s'\n", attr->u.str);
+			return NULL;
 	}
 	
 	this_ = g_new0(struct service, 1);
@@ -166,7 +170,7 @@ service_new(struct navit* navit, struct attr** attrs, struct attr* parent)
 	//TODO: Read important attrs here
 	
 	this_->cbl = callback_list_new();
-	this_->priv = servicetype_new(&this_->meth, this_->cbl, attrs);
+	this_->priv = servicetype_new(&this_->meth, this_->cbl, attrs, parent);
 	if (!this_->priv) {
 		dbg(lvl_error, "servicetype_new failed\n");
 		callback_list_destroy(this_->cbl);

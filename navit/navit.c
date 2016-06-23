@@ -3371,20 +3371,13 @@ static int
 navit_add_service(struct navit *this_, struct service *serv)
 {
 	struct navit_service *navit_service=g_new0(struct navit_service, 1);
-	navit_service->service=serv;
 	navit_service->service = serv;
 	
 	this_->services=g_list_append(this_->services, navit_service);
 	
-	/*	
+	//*	
 	navit_service->callback.type=attr_callback;
-	navit_service->callback.u.callback=callback_new_attr_2(callback_cast(navit_service_update_position), attr_position_coord_geo, this_, navit_service);
-	service_add_attr(navit_service->service, &navit_service->callback);
-	navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_fix_type, this_, navit_service, attr_position_fix_type);
-	service_add_attr(navit_service->service, &navit_service->callback);
-	navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_sats_used, this_, navit_service, attr_position_sats_used);
-	service_add_attr(navit_service->service, &navit_service->callback);
-	navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_hdop, this_, navit_service, attr_position_hdop);
+	//navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_fix_type, this_, navit_service, attr_position_fix_type);
 	service_add_attr(navit_service->service, &navit_service->callback);
 	//*/
 	service_set_attr(navit_service->service, &this_->self);
