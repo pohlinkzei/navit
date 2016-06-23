@@ -3074,6 +3074,43 @@ coord_not_set(struct coord c){
 }
 
 /**
+ * @brief Called when a status attribute of a service changes.
+ *
+ * This function is called when the {@code position_fix_type}, {@code position_sats_used} or {@code position_hdop}
+ * attribute of any configured service changes.
+ *
+ * The function checks if {@code navit_service} refers to the active service and if {@code type} is one of the above types.
+ * If this is the case, it inavit_serviceokes the callback functions for {@code navit}'s respective attributes.
+ *
+ * Future actions that need to happen when one of these three attribute changes for any service should be
+ * implemented here.
+ *
+ * @param this_ The navit object
+ * @param navit_service The {@code navit_service} which reported a new status attribute
+ * @param type The type of attribute with has changed
+ */
+static void
+navit_service_update_status(struct navit *this_, struct navit_service *navit_service, enum attr_type type) {
+	if (this_->service != navit_service){
+		dbg(lvl_error, "Bad service plugin!");
+		return;
+	}
+	switch(type) {
+		//TODO: add callbacks to the service
+		/*
+	case attr_*_type:
+		callback_list_call_attr_2(this_->attr_cbl, type, this_, navit_service->service);
+		break;
+		//*/ 
+	default:
+		dbg(lvl_error, "Bad service callback!");
+		return;
+	}
+}
+
+
+
+/**
  * Toggle the cursor update : refresh the map each time the cursor has moved (instead of only when it reaches a border)
  *
  * @param this_ The navit instance
