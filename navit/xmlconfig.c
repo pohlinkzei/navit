@@ -283,6 +283,8 @@ object_func_lookup(enum attr_type type)
 		return &script_func;
 	case attr_osd:
 		return &osd_func;
+	case attr_service:
+		return &service_func;
 	case attr_trackingo:
 		return &tracking_func;
 	case attr_speech:
@@ -340,7 +342,7 @@ static char *element_fixmes[]={
 };
 
 static void initStatic(void) {
-	elements=g_new0(struct element_func,44); //43 is a number of elements + ending NULL element
+	elements=g_new0(struct element_func,45); //44 is a number of elements + ending NULL element
 
 	elements[0].name="config";
 	elements[0].parent=NULL;
@@ -550,11 +552,16 @@ static void initStatic(void) {
 	elements[41].parent="profile_option";
 	elements[41].func=NULL;
 	elements[41].type=attr_roadprofile;
-
-	elements[42].name="script";
+	
+	elements[42].name="layer";
 	elements[42].parent="navit";
 	elements[42].func=NULL;
-	elements[42].type=attr_script;
+	elements[42].type=attr_layer;
+
+	elements[43].name="service";
+	elements[43].parent="navit";
+	elements[43].func=NULL;
+	elements[43].type=attr_service;
 }
 
 /**

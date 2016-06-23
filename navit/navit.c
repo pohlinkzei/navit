@@ -53,6 +53,7 @@
 #include "navigation.h"
 #include "speech.h"
 #include "track.h"
+#include "service.h"
 #include "vehicle.h"
 #include "layout.h"
 #include "log.h"
@@ -93,6 +94,12 @@
  * @{
  */
 
+
+struct navit_service {
+	struct service *service;
+	struct attr callback;
+};
+
 //! The vehicle used for navigation.
 struct navit_vehicle {
 	int follow;
@@ -130,8 +137,10 @@ struct navit {
 	int orientation;
 	int recentdest_count;
 	int osd_configuration;
+	GList *services;
 	GList *vehicles;
 	GList *windows_items;
+	struct navit_service *service;
 	struct navit_vehicle *vehicle;
 	struct callback_list *attr_cbl;
 	struct callback *nav_speech_cb, *roadbook_callback, *popup_callback, *route_cb, *progress_cb;
@@ -192,6 +201,7 @@ struct attr_iter {
 
 static void navit_vehicle_update_position(struct navit *this_, struct navit_vehicle *nv);
 static void navit_vehicle_draw(struct navit *this_, struct navit_vehicle *nv, struct point *pnt);
+static int navit_add_service(struct navit *this_, struct service *serv);
 static int navit_add_vehicle(struct navit *this_, struct vehicle *v);
 static int navit_set_attr_do(struct navit *this_, struct attr *attr, int init);
 static int navit_get_cursor_pnt(struct navit *this_, struct point *p, int keep_orientation, int *dir);
@@ -2989,6 +2999,9 @@ navit_add_attr(struct navit *this_, struct attr *attr)
 	case attr_trackingo:
 		this_->tracking=attr->u.tracking;
 		break;
+	case attr_service:
+		ret=navit_add_service(this_, attr->u.service);
+		break;
 	case attr_vehicle:
 		ret=navit_add_vehicle(this_, attr->u.vehicle);
 		break;
@@ -3347,7 +3360,36 @@ navit_add_vehicle(struct navit *this_, struct vehicle *v)
 	return 1;
 }
 
-
+/**
+ * @brief Registers a new service.
+ *
+ * @param this_ The navit instance
+ * @param v The service to register
+ * @return True for success
+ */
+static int
+navit_add_service(struct navit *this_, struct service *serv)
+{
+	struct navit_service *navit_service=g_new0(struct navit_service, 1);
+	navit_service->service=serv;
+	navit_service->service = serv;
+	
+	this_->services=g_list_append(this_->services, navit_service);
+	
+	/*	
+	navit_service->callback.type=attr_callback;
+	navit_service->callback.u.callback=callback_new_attr_2(callback_cast(navit_service_update_position), attr_position_coord_geo, this_, navit_service);
+	service_add_attr(navit_service->service, &navit_service->callback);
+	navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_fix_type, this_, navit_service, attr_position_fix_type);
+	service_add_attr(navit_service->service, &navit_service->callback);
+	navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_sats_used, this_, navit_service, attr_position_sats_used);
+	service_add_attr(navit_service->service, &navit_service->callback);
+	navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_hdop, this_, navit_service, attr_position_hdop);
+	service_add_attr(navit_service->service, &navit_service->callback);
+	//*/
+	service_set_attr(navit_service->service, &this_->self);
+	return 1;
+}
 
 
 struct gui *
