@@ -466,6 +466,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->icon = "gui_active";
 						cd->rx_data = rx_mfa;
 						cd->tx_data = tx_mfa;
+						cd->num_properties = 17;
 						cd->serialize_rx = serialize_mfa_rxdata;
 						cd->serialize_tx = serialize_mfa_txdata;
 						cd->deserialize_rx = deserialize_mfa_rxdata;
@@ -479,6 +480,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->icon = "gui_active";
 						cd->rx_data = rx_lsg;
 						cd->tx_data = tx_lsg;
+						cd->num_properties = 6;
 						cd->serialize_rx = serialize_lsg_rxdata;
 						cd->serialize_tx = serialize_lsg_txdata;
 						cd->deserialize_rx = deserialize_lsg_rxdata;
@@ -492,6 +494,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->icon = "gui_active";
 						cd->rx_data = rx_wfs;
 						cd->tx_data = tx_wfs;
+						cd->num_properties = 0;
 						cd->serialize_rx = serialize_wfs_rxdata;
 						cd->serialize_tx = serialize_wfs_txdata;
 						cd->deserialize_rx = deserialize_wfs_rxdata;
@@ -510,6 +513,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->icon = "gui_active";
 						cd->rx_data = rx_pwm;
 						cd->tx_data = tx_pwm;
+						cd->num_properties = 8;
 						cd->serialize_rx = serialize_pwm_rxdata;
 						cd->serialize_tx = serialize_pwm_txdata;
 						cd->deserialize_rx = deserialize_pwm_rxdata;
@@ -523,6 +527,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->icon = "gui_active";
 						cd->rx_data = rx_v2v;
 						cd->tx_data = tx_v2v;
+						cd->num_properties = 8;
 						cd->serialize_rx = serialize_v2v_rxdata;
 						cd->serialize_tx = serialize_v2v_txdata;
 						cd->deserialize_rx = deserialize_v2v_rxdata;
@@ -774,7 +779,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 	p->children = NULL;
 	p->value = (void*) rx->fet_temp;
 	list = g_list_append(list, p);
-	p=g_new0(struct service_property,1);
+	
 	return list;
 }
 
@@ -1680,6 +1685,7 @@ i2c_task(struct service_priv *this){
 }
 
 GList* i2c_get_properties(struct service_priv *priv){
+	dbg(lvl_error,"Found Properties %p\n", priv->properties);
 	return priv->properties;
 }
 
@@ -1741,21 +1747,23 @@ GList* init_properties(struct service_priv *this){
 
 	this->connected_devices = g_list_first(this->connected_devices);
 	int num_devices = g_list_length(this->connected_devices);
-	dbg(lvl_info, "%i connected devices\n", num_devices);
+	dbg(lvl_error, "%i connected devices\n", num_devices);
 	if(this->device){
 		while(num_devices--){
 			if(this->connected_devices->data){
 				struct connected_devices* cd = this->connected_devices->data;
 				struct service_property *sp = g_new0(struct service_property,1);
+				dbg(lvl_error, "init device %s\n", cd->name);
 				sp->name = cd->name;
 				sp->parent = NULL;
 				sp->ro = 0;
 				sp->num_children = cd->num_properties;
+				dbg(lvl_error, "parent = %p, ro = %i, num_children = %i\n", sp->parent, sp->ro, sp->num_children);
 				uint8_t cnt = cd->num_properties;
 				while(cnt--){
 					sp->children = cd->init_properties(cd->rx_data, cd->tx_data, sp);
 				}
-				g_list_append(prop, sp);
+				prop = g_list_append(prop, sp);
 				if(this->connected_devices->next)
 					this->connected_devices = this->connected_devices->next;
 				else

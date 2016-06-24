@@ -40,6 +40,23 @@ void gui_internal_service_devicelist (struct gui_priv *this, struct widget *wm, 
 struct service_priv;
 struct service;
 struct navit_service;
+
+void
+increase_value(struct gui_priv *this, struct widget *wm, void *data){
+	struct service_property *prop = (struct service_property *) data;
+	prop->value++; 
+	gui_internal_service_property (this, wm, prop);
+}
+
+void
+decrease_value(struct gui_priv *this, struct widget *wm, void *data){
+	struct service_property *prop = (struct service_property *) data;
+	prop->value--; 
+	gui_internal_service_property (this, wm, prop);
+}
+
+
+
 /**
  * @brief   Show
  * @param[in]   this    - pointer to the gui_priv
@@ -93,13 +110,41 @@ gui_internal_service_root (struct gui_priv *this, struct widget *wm, void *data)
 
 }
 
+struct widget *
+gui_internal_service_edit_property(struct gui_priv *this, struct service_property *p){
+	struct widget *wl, *wb;
+	int nitems = 2, nrows;
+	wl = gui_internal_box_new(this, gravity_left_center | orientation_horizontal_vertical | flags_fill);
+	wl->w = this->root.w;
+	wl->cols = this->root.w / this->icon_s;
+	nrows = nitems / wl->cols + (nitems % wl->cols > 0);
+	wl->h = this->icon_l *nrows;
+	
+	wb = gui_internal_button_new_with_callback(this, "back", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_root, NULL);
+	gui_internal_widget_append(wl, wb);
+	if(p->ro == 0){
+		wb = gui_internal_button_new_with_callback(this, "-", NULL, gravity_left_center | orientation_horizontal, decrease_value, p);
+		gui_internal_widget_append(wl, wb);
+	}
+	wb = gui_internal_label_new(this, g_strdup_printf("%i", p->value));
+	gui_internal_widget_append(wl, wb);
+	if(p->ro == 0){
+		wb = gui_internal_button_new_with_callback(this, "+", NULL, gravity_left_center | orientation_horizontal, increase_value, p);
+		gui_internal_widget_append(wl, wb);
+	}
+	return wl;
+	
+	
+	
+}
+
 void
 gui_internal_service_property (struct gui_priv *this, struct widget *wm, void *data)
 {
 	struct widget *wb, *w, *wbm;
     struct widget *tbl, *row;
     int index=0;
-    dbg (lvl_error, "Showing devicelist %p\n", data);
+    dbg (lvl_error, "Showing properties %p\n", data);
     char* name = "";
     gui_internal_prune_menu_count (this, 1, 0);
     GList* properties = NULL;
@@ -107,9 +152,15 @@ gui_internal_service_property (struct gui_priv *this, struct widget *wm, void *d
 	if(prop)
 		properties = prop->children; 
 	
+	wb = gui_internal_menu (this, g_strdup_printf("Property: %s", prop->name));
 	wb->background = this->background;
     w = gui_internal_box_new (this, gravity_top_center | orientation_vertical | flags_expand | flags_fill);
-    gui_internal_widget_append (wb, w);
+    gui_internal_widget_append (wb, w);	
+	if(prop->value != NULL){
+			dbg (lvl_error, "Value: %p, %i\n", prop->value, prop->value);
+			gui_internal_widget_append (w, gui_internal_service_edit_property(this, prop));
+	}
+	
 	tbl = gui_internal_widget_table_new (this, gravity_left_top | flags_fill | flags_expand | orientation_vertical, 1);
 	gui_internal_widget_append (w, tbl);
 	
@@ -120,13 +171,13 @@ gui_internal_service_property (struct gui_priv *this, struct widget *wm, void *d
 		wbm = gui_internal_button_new_with_callback (this,
 						 p->name,image_new_s (this,/* (service->icon) ? (service->icon) : */("gui_inactive")),
 						 gravity_left_center |
-						 orientation_horizontal | flags_fill, gui_internal_service_property, NULL);
+						 orientation_horizontal | flags_fill, gui_internal_service_property, p);
 
 		gui_internal_widget_append (tbl, row);
 		gui_internal_widget_append (row, wbm);	
 		properties = g_list_next(properties);
 	}
-    
+     gui_internal_menu_render (this);
 }
 
 /**
@@ -156,9 +207,10 @@ gui_internal_service_devicelist (struct gui_priv *this, struct widget *wm, void 
 		struct attr attr;
 		if(service_get_attr(service, attr_type, &attr, NULL))
 			name = g_strdup(attr.u.str);
-		dbg (lvl_error, "Service %s not implemented\n", data);
-		wb = gui_internal_menu (this, g_strdup_printf ("Service %s not implemented",name));
+		
+		wb = gui_internal_menu (this, g_strdup_printf ("%s Devices",name));
 		properties = service_get_properties(service);
+		dbg (lvl_error, "Service %s, Properties: %p\n", data, properties);
 	}else{
 		dbg (lvl_error, "Service not available\n");
 		wb = gui_internal_menu (this, g_strdup_printf ("Service not available"));
@@ -173,12 +225,12 @@ gui_internal_service_devicelist (struct gui_priv *this, struct widget *wm, void 
 	
 	while(properties){
 		struct service_property *p = properties->data;
-
+		dbg (lvl_error, "Service Property %p, Name: %s\n", p, p->name);
 		row = gui_internal_widget_table_row_new (this, gravity_left | flags_fill | orientation_horizontal);
 		wbm = gui_internal_button_new_with_callback (this,
 						 p->name,image_new_s (this,/* (service->icon) ? (service->icon) : */("gui_inactive")),
 						 gravity_left_center |
-						 orientation_horizontal | flags_fill, gui_internal_service_property, NULL);
+						 orientation_horizontal | flags_fill, gui_internal_service_property, p);
 
 		gui_internal_widget_append (tbl, row);
 		gui_internal_widget_append (row, wbm);	
