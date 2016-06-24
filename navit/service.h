@@ -19,6 +19,10 @@
 #ifndef NAVIT_SERVICE_H
 #define NAVIT_SERVICE_H
 
+#include "glib_slice.h"
+#include "item.h"
+#include "callback.h"
+#include "xmlconfig.h"
 
 
 #ifdef __cplusplus
@@ -28,17 +32,17 @@ extern "C" {
 struct service_priv;
 
 struct service_methods {
-	int (*plugin)(struct service_priv *priv);
+	void (*plugin)(struct service_priv *priv);
 	int (*set_attr)(struct service_priv *priv, struct attr *attr);
 	int (*get_attr)(struct service_priv *priv,enum attr_type type, struct attr *attr);
 };
 
 struct service {
 	NAVIT_OBJECT
-	char* name;
 	struct callback_list* cbl;
 	struct service_methods meth;
 	struct service_priv* priv;
+	char* name;
 };
 
 struct service_property{

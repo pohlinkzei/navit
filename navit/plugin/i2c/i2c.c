@@ -17,8 +17,264 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#include "i2c.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <linux/i2c-dev.h>
 
+#include <math.h>
+
+#include <glib.h>
+#include <time.h>
+
+
+#include <string.h>
+#include <errno.h>
+
+#include <config.h>
+#include <config_.h>
+#include <navit.h>
+#include <coord.h>
+#include <point.h>
+#include <plugin.h>
+#include <debug.h>
+#include <item.h>
+#include <xmlconfig.h>
+#include <attr.h>
+#include <layout.h>
+#include <navigation.h>
+#include <command.h>
+#include <callback.h>
+#include <graphics.h>
+#include <track.h>
+#include <vehicle.h>
+#include <vehicleprofile.h>
+#include <map.h>
+#include <event.h>
+#include <mapset.h>
+#include <osd.h>
+#include <route.h>
+#include <search.h>
+#include <callback.h>
+#include <gui.h>
+#include <util.h>
+#include <service.h>
+#ifdef USE_AUDIO_FRAMEWORK
+#include <audio.h>
+#endif
+
+
+#define AUDIO_STR_LENGTH 38
+#define CRC_POLYNOME 0xAB
+char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
+char result[6] = {0,};
+unsigned char i2ctxdata[128] = {0,};
+unsigned char i2crxdata[128] = {0,};
+struct service_priv *i2c_plugin;
+
+struct i2c_nav_data{
+	int distance_to_next_turn;
+	int nav_status;
+	int next_turn;
+};
+
+struct service_priv{
+	struct navit* nav;
+	struct callback_list *cbl;
+	struct attr** attrs;
+	char* source;
+	char* name;
+	char* icon;
+	GList* properties;
+    int device;
+    int last_status;
+    int last_next_turn;
+    struct callback* task;
+    struct callback* callback;
+    int timeout;
+    GList* connected_devices;
+    struct i2c_nav_data* navigation_data;
+};
+
+struct connected_devices{
+	char* name;
+	uint8_t addr;
+	char* icon;
+	void* rx_data;
+	void* tx_data;
+	uint8_t rx_size;
+	uint8_t tx_size;
+	uint8_t num_properties;
+	uint8_t (*serialize_tx)(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+	uint8_t (*serialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
+	uint8_t (*deserialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]); 
+	GList* (*init_properties)(void *rx_data, void* tx_data);
+};
+
+typedef struct txdataLSG{
+	uint8_t AL;
+	uint8_t TFL;
+	uint8_t ZV;
+	uint8_t LED;
+	uint8_t time_in;
+	uint8_t time_out;
+}tx_lsg_t;
+	
+typedef struct rxdataLSG{
+	uint8_t AL;
+	uint8_t TFL;
+	uint8_t ZV;
+	uint8_t LED;
+	uint8_t time_in;
+	uint8_t time_out;
+}rx_lsg_t;
+
+typedef struct txdataV2V{
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+}tx_v2v_t;
+	
+typedef struct rxdataV2V{
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+	uint16_t vbat;
+	uint8_t water_temp;
+	uint8_t fet_temp;
+}rx_v2v_t;
+
+typedef struct txdataPWM{
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+}tx_pwm_t;
+	
+typedef struct rxdataPWM{
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+	uint16_t vbat;
+	uint8_t water_temp;
+	uint8_t fet_temp;
+}rx_pwm_t;
+
+typedef struct txdataWFS{
+	uint8_t time;
+}tx_wfs_t;
+	
+typedef struct rxdataWFS{
+	uint8_t time;
+}rx_wfs_t;
+
+typedef struct txdataMFA{
+	uint32_t distance_to_next_turn;
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	
+	uint8_t navigation_next_turn;
+	//navigation active?
+	uint8_t cal_water_temperature;
+	uint8_t cal_voltage;
+	uint8_t cal_oil_temperature;
+	uint8_t cal_consumption;	
+	// other values from pwm module?
+}tx_mfa_t;
+/*
+typedef struct txdataMFA{
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;
+	uint32_t distance_to_next_turn;
+	//navigation active?
+	uint8_t cal_water_temperature;
+	uint8_t cal_voltage;
+	uint8_t cal_oil_temperature;
+	uint8_t cal_consumption;	
+	// other values from pwm module?
+}tx_mfa_t;*/
+	
+typedef struct rxdataMFA{
+	
+	uint32_t distance_to_next_turn;
+	uint16_t voltage;
+	uint16_t consumption;
+	uint16_t average_consumption;
+	uint16_t range;
+	uint16_t speed;
+	uint16_t average_speed;
+	uint16_t rpm;
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;	//navigation active?
+	uint8_t cal_water_temperature;
+	uint8_t cal_voltage;
+	uint8_t cal_oil_temperature;
+	uint8_t cal_consumption;
+	// read only
+	int8_t water_temperature;
+	int8_t ambient_temperature;
+	int8_t oil_temperature;
+}rx_mfa_t;
+/*
+typedef struct rxdataMFA{
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;
+	uint32_t distance_to_next_turn;
+	//navigation active?
+	uint8_t cal_water_temperature;
+	uint8_t cal_voltage;
+	uint8_t cal_oil_temperature;
+	uint8_t cal_consumption;
+	// read only
+	uint16_t voltage;
+	int8_t water_temperature;
+	int8_t ambient_temperature;
+	int8_t oil_temperature;
+	uint16_t consumption;
+	uint16_t average_consumption;
+	uint16_t range;
+	uint16_t speed;
+	uint16_t average_speed;
+	uint16_t rpm;
+}rx_mfa_t;
+*/
+
+
+rx_lsg_t *rx_lsg = NULL;
+tx_lsg_t *tx_lsg = NULL;
+rx_pwm_t *rx_pwm = NULL;
+tx_pwm_t *tx_pwm = NULL;
+rx_wfs_t *rx_wfs = NULL;
+tx_wfs_t *tx_wfs = NULL;
+rx_v2v_t *rx_v2v = NULL;
+tx_v2v_t *tx_v2v = NULL;
+rx_mfa_t *rx_mfa = NULL;
+tx_mfa_t *tx_mfa = NULL;
+
+void read_i2c_frame(int device, uint8_t* data, uint8_t size);
+//*
+void i2c_get_plugin(struct service_priv* p);
+int i2c_set_attr(struct service_priv *priv, struct attr *attr);
+int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr);
+/*
+static struct service_methods i2c_service_meth = {
+		i2c_get_plugin,
+		i2c_set_attr,
+		i2c_get_attr,
+};
+*/
 
 struct navigation_itm;
 struct navigation;
@@ -50,6 +306,49 @@ GList* init_lsg_properties(void* rx_data, void* tx_data);
 
 struct i2c_nav_data* get_navigation_data(struct service_priv *this);
 void get_audio_data(struct service_priv *this, uint8_t audio_str[AUDIO_STR_LENGTH]);
+
+static struct service_methods i2c_service_meth = {
+		i2c_get_plugin,
+		i2c_set_attr,
+		i2c_get_attr,
+};
+
+
+int i2c_set_attr(struct service_priv *priv, struct attr *attr){
+	dbg(lvl_error, "i2c_set_attr(struct service_priv=%p, struct attr=%p)\n", priv,  attr);
+	switch(attr->type){
+		case attr_name:
+			priv->name = attr->u.str;
+			break;
+		/*
+		case attr_property:
+			//priv->properties->data = attr->u.str;
+			break;
+		//*/
+		default:
+		break;
+	}
+		return 1;
+}
+
+int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr){
+	dbg(lvl_error, "i2c_get_attr(struct service_priv=%p, enum attr_type=%p (%s), struct attr=%p)\n", priv, type, attr_to_name(type), attr);
+	switch(type){
+		case attr_type:
+			attr->u.str = priv->name;
+			break;
+		/*
+		case attr_property:
+			//priv->properties->data = attr->u.str;
+			break;
+		//*/
+		default:
+		break;
+	}
+		return 1;
+}
+
+
 
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
@@ -1375,7 +1674,7 @@ i2c_task(struct service_priv *this){
 		
 	}
 }
-int
+void
 i2c_get_plugin(struct service_priv* p){
 	p = &i2c_plugin;
 	return 1;
@@ -1419,40 +1718,11 @@ plugin_init(void)
 }
 //*/
 
-int i2c_set_attr(struct service_priv *priv, struct attr *attr){
-	switch(attr->type){
-		case attr_name:
-			priv->name = attr->u.str;
-			break;
-		/*
-		case attr_property:
-			//priv->properties->data = attr->u.str;
-			break;
-		//*/
-		default:
-		break;
-	}
-		return 1;
-}
 
-int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr){
-	switch(type){
-		case attr_name:
-			attr->u.str = priv->name;
-			break;
-		/*
-		case attr_property:
-			//priv->properties->data = attr->u.str;
-			break;
-		//*/
-		default:
-		break;
-	}
-		return 1;
-}
+
 
 GList* init_properties(struct service_priv *this){
-	GList *prop = g_new0(GList,1);
+	GList *prop;
 	struct service_property *sp = g_new0(struct service_property,1);
 	
 	this->connected_devices = g_list_first(this->connected_devices);
@@ -1477,14 +1747,15 @@ GList* init_properties(struct service_priv *this){
 	
 		
 	}
+	return prop;
 }
+
 
 static struct service_priv *
 i2c_service_new(struct service_methods *
 						 meth,
 						 struct callback_list *cbl,
-						 struct attr ** attrs,
-						struct attr *parent) 
+						 struct attr ** attrs) 
 {
 	//*
     struct service_priv *i2c_plugin = g_new0 (struct service_priv, 1);
@@ -1515,15 +1786,19 @@ i2c_service_new(struct service_methods *
 	}else{
 		dbg(lvl_error, "No I2C Devices found\n");
 	}
-	
+	i2c_plugin->name = g_strdup("I2C Service");
 	i2c_plugin->properties = init_properties(i2c_plugin);
 	
 	i2c_plugin->cbl = cbl;
+	dbg(lvl_error, "Methods: %p\n",meth);
     *meth=i2c_service_meth;
-    
+    dbg(lvl_error, "Methods: Plugin: %p, Get: %p, Set: %p\n",meth->plugin, meth->get_attr, meth->set_attr);
+   
+	
     return i2c_plugin;
     //*/
 }
+
 
 
 /**

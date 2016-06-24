@@ -49,12 +49,15 @@ struct service_priv;
 int
 service_get_attr(struct service *this_, enum attr_type type, struct attr *attr, struct attr_iter *iter)
 {
-	int ret;
-
-	ret=this_->meth.get_attr(this_->priv, type, attr);
-	if (ret)
-		return ret;
-
+	dbg(lvl_error, "Get ATTR: %p (%s), this: %p\n",attr, type?attr_to_name(type):"X", this_);
+	
+	int ret=1;
+	if (this_->meth.get_attr) {
+		ret=this_->meth.get_attr(this_->priv, type, attr);
+		
+		if (ret)
+			return ret;
+	}
 	return attr_generic_get_attr(this_->attrs, NULL, type, attr, iter);
 }
 
@@ -68,9 +71,22 @@ service_get_attr(struct service *this_, enum attr_type type, struct attr *attr, 
 int
 service_set_attr(struct service *this_, struct attr *attr)
 {
+	dbg(lvl_error, "Set ATTR: %p (%s), this: %p\n",attr, attr_to_name(attr->type), this_);
 	int ret=1;
-	if (this_->meth.set_attr)
-		ret=this_->meth.set_attr(this_->priv, attr);
+	switch(attr->type){
+		case attr_name:
+		dbg(lvl_error, "ATTR_NAME");
+		break;
+		case attr_callback:
+		dbg(lvl_error, "ATTR_Callback");
+		callback_list_add(this_->cbl, attr->u.callback);
+		break;
+		default:
+			if (this_->meth.set_attr)
+			ret=this_->meth.set_attr(this_->priv, attr);
+			break;
+	}
+	
 	if (ret == 1 && attr->type != attr_navit)
 		this_->attrs=attr_generic_set_attr(this_->attrs, attr);
 	return ret != 0;
@@ -87,6 +103,7 @@ service_set_attr(struct service *this_, struct attr *attr)
 int
 service_add_attr(struct service *this_, struct attr *attr)
 {
+	dbg(lvl_error, "Add ATTR: %p (%s), this: %p\n",attr, attr->type?attr_to_name(attr->type):"X", this_);
 	int ret=1;
 	switch (attr->type) {
 	case attr_callback:
@@ -110,6 +127,8 @@ service_add_attr(struct service *this_, struct attr *attr)
 int
 service_remove_attr(struct service *this_, struct attr *attr)
 {
+	dbg(lvl_error, "Remove ATTR: %p (%s), this: %p\n",attr, attr->type?attr_to_name(attr->type):"X", this_);
+	
 	struct callback *cb;
 	switch (attr->type) {
 	case attr_callback:
@@ -139,16 +158,12 @@ service_new(struct attr* parent, struct attr** attrs)
 {
 	struct service *this_;
 	struct attr* attr;
-	
-	
-	
 	struct service_priv *(*servicetype_new) (struct service_methods *
 						 meth,
 						 struct callback_list *cbl,
-						 struct attr ** attrs,
-						struct attr *parent);
+						 struct attr ** attrs);
 
-	dbg(lvl_debug, "enter\n");
+	dbg(lvl_error, "enter\n");
 
 	
 	
@@ -167,12 +182,15 @@ service_new(struct attr* parent, struct attr** attrs)
 	
 	this_ = g_new0(struct service, 1);
 	this_->func=&service_func;
+	this_->name = g_strdup(attr->u.str);
+	dbg(lvl_error, "%s\n",  this_->name);
+	//this_->icon = NULL;
 	navit_object_ref((struct navit_object *)this_);
 	
 	//TODO: Read important attrs here
 	
 	this_->cbl = callback_list_new();
-	this_->priv = servicetype_new(&this_->meth, this_->cbl, attrs, parent);
+	this_->priv = servicetype_new(&this_->meth, this_->cbl, attrs);
 	if (!this_->priv) {
 		dbg(lvl_error, "servicetype_new failed\n");
 		callback_list_destroy(this_->cbl);
@@ -181,7 +199,7 @@ service_new(struct attr* parent, struct attr** attrs)
 	}
 	this_->attrs=attr_list_dup(attrs);
 
-	dbg(lvl_debug, "leave\n");
+	dbg(lvl_error, "leave %p\n", &this_->meth);
 
 	return this_;
 }

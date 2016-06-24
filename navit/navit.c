@@ -651,7 +651,22 @@ navit_scale(struct navit *this_, long scale, struct point *p, int draw)
 	if (draw)
 		navit_draw(this_);
 }
-
+/*
+static void
+navit_service_get(struct navit* this){
+	GList *l;
+	l=this_->services;
+	while (l) {
+		struct navit_service * nav_serv = l->data;
+		struct service *s = nav_serv->service;
+		if(s->meth.plugin && s->meth.plugin != 0xFFFFFFFF){
+			int (*f) (struct service_priv *this) = s->meth.plugin;
+			f(a->priv)
+		}
+		l=g_list_next(l);
+	}
+}
+*/
 /**
  * @brief Automatically adjusts zoom level
  *
@@ -3374,7 +3389,7 @@ static int
 navit_add_service(struct navit *this_, struct service *serv)
 {
 	struct navit_service *navit_service=g_new0(struct navit_service, 1);
-
+	
 	navit_service->service = serv;
 	
 	this_->services=g_list_append(this_->services, navit_service);
@@ -3385,9 +3400,23 @@ navit_add_service(struct navit *this_, struct service *serv)
 	service_add_attr(navit_service->service, &navit_service->callback);
 	//*/
 	service_set_attr(navit_service->service, &this_->self);
+	
+	dbg(lvl_error, "Navit Add Service %p (%s) to List %p\n", serv,serv->name, this_->services); 
 	return 1;
 }
 
+GList*
+navit_get_services(struct navit* this_){
+	return this_->services;
+}
+
+struct service*
+navit_get_service(struct navit *navit, int i){
+	struct navit_service *nav_serv = g_list_nth_data(navit->services, i);
+	if(nav_serv)
+		return nav_serv->service;
+	return NULL;
+}
 
 struct gui *
 navit_get_gui(struct navit *this_)
