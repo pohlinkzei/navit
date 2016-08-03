@@ -36,6 +36,7 @@
 #include "gui_internal_search.h"
 #include "gui_internal_poi.h"
 #include "gui_internal_command.h"
+#include "gui_internal_service.h"
 
 extern char *version;
 
@@ -1230,6 +1231,7 @@ static struct command_table commands[] = {
 	{"waypoints",command_cast(gui_internal_cmd2)},
 	{"write",command_cast(gui_internal_cmd_write)},
 	{"about",command_cast(gui_internal_cmd2)},
+	{"service_show",command_cast(gui_internal_service_root)},
 
 };
 

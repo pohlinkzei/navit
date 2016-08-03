@@ -32,9 +32,8 @@
 #include "coord.h"
 #include "gui_internal_widget.h"
 #include "gui_internal_priv.h"
-#include "gui_internal_media.h"
 #include "gui_internal_command.h"
-#include "service.h"
+#include "gui_internal_service.h"
 
 /**
  * @brief   Show
