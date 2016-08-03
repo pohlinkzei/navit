@@ -79,6 +79,7 @@
 #include "debug.h"
 #include "fib.h"
 #include "types.h"
+#include "service.h"
 #include "gui_internal_widget.h"
 #include "gui_internal_priv.h"
 #include "gui_internal_html.h"
@@ -89,7 +90,7 @@
 #include "gui_internal_poi.h"
 #include "gui_internal_command.h"
 #include "gui_internal_keyboard.h"
-
+#include "gui_internal_service.h"
 
 /**
  * Indexes into the config_profiles array.
