@@ -27,7 +27,7 @@ extern "C" {
  
 struct service_priv;
 
-struct service_methods{
+struct service_methods {
 	int (*plugin)(struct service_priv *priv);
 	int (*set_attr)(struct service_priv *priv, struct attr *attr);
 	int (*get_attr)(struct service_priv *priv,enum attr_type type, struct attr *attr);

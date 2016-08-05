@@ -1232,7 +1232,6 @@ static struct command_table commands[] = {
 	{"write",command_cast(gui_internal_cmd_write)},
 	{"about",command_cast(gui_internal_cmd2)},
 	{"service_show",command_cast(gui_internal_service_root)},
-
 };
 
 void

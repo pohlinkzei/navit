@@ -149,6 +149,7 @@ find_package(PythonLibs)
 find_package(OpenSSL)
 find_package(Threads)
 libfind_pkg_check_modules(FONTCONFIG fontconfig)
+
 #Qt detection
 if (NOT DISABLE_QT)
   # Unfortunately, CMake seems to ignore the "OPTIONAL_COMPONENTS" flag,
@@ -173,6 +174,7 @@ if(PKG_CONFIG_FOUND)
    endif(IMLIB2_FOUND)
 endif(PKG_CONFIG_FOUND)
 #Simple checks
+CHECK_INCLUDE_FILES(linux/i2c-dev.h HAVE_I2C_DEV)
 CHECK_INCLUDE_FILES(wordexp.h HAVE_WORDEXP)
 CHECK_INCLUDE_FILES(endian.h HAVE_ENDIAN_H)
 CHECK_INCLUDE_FILES(stdint.h HAVE_STDINT_H)
@@ -422,6 +424,7 @@ add_module(map/csv "Default" TRUE)
 #Modules without test yet
 add_module(plugin/pedestrian "Default" FALSE)
 add_module(plugin/j1850 "Default" FALSE)
+add_module(plugin/i2c "Default" FALSE)
 add_module(speech/android "Default" FALSE)
 add_module(speech/espeak "Default" FALSE)
 add_module(speech/iphone "Default" FALSE)
@@ -437,6 +440,16 @@ add_feature(USE_ROUTING "default" TRUE)
 add_feature(USE_SVG "default" TRUE)
 add_feature(SVG2PNG "default" TRUE)
 add_feature(SAMPLE_MAP "default" TRUE)
+add_feature(USE_I2C "default" FALSE)
+
+if(HAVE_I2C_DEV)
+	if(USE_I2C)
+		set_with_reason(plugin/i2c "i2c lib found and set by user" true)
+	else()
+		set_with_reason(plugin/i2c "i2c lib found but not set by user" false)
+	endif(USE_I2C)
+endif(HAVE_I2C_DEV)
+
 
 IF(NOT svg2png_scaling)
    IF(NOT ANDROID)

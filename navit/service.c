@@ -141,8 +141,7 @@ service_new(struct navit* navit, struct attr** attrs, struct attr* parent)
 	struct attr* type;
 	struct service_priv *(*servicetype_new) (struct service_methods *
 						 meth,
-						 struct callback_list *
-						 cbl,
+						 struct callback_list *cbl,
 						 struct attr ** attrs);
 
 	dbg(lvl_debug, "enter\n");
