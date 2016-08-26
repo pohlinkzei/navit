@@ -42,7 +42,7 @@ struct service {
 };
 
 
-struct service* service_new(struct navit* navit, struct attr** attrs, struct attr* parent);
+struct service* service_new(struct attr** attrs, struct attr* parent);
 void service_destroy(struct service *this_);
 int service_get_attr(struct service *this_, enum attr_type type, struct attr *attr, struct attr_iter *iter);
 int service_set_attr(struct service *this_, struct attr *attr);

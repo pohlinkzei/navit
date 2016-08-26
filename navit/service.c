@@ -135,7 +135,7 @@ service_remove_attr(struct service *this_, struct attr *attr)
  * @return The newly created service object
  */
 struct service *
-service_new(struct navit* navit, struct attr** attrs, struct attr* parent)
+service_new(struct attr** attrs, struct attr* parent)
 {
 	struct service *this_;
 	struct attr* type;

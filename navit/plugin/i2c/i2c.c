@@ -912,7 +912,7 @@ i2c_service_new(struct service_methods *meth,
     if ((attr = attr_search (attrs, NULL, attr_source)))
       {
           i2c_plugin->source = g_strdup(attr->u.str);
-          dbg (lvl_info, "found source attr: %s\n", attr->u.str);
+          //dbg (lvl_info, "found source attr: %s\n", attr->u.str);
       }
    
     dbg (lvl_debug,  "Callback created successfully\n");
