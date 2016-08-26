@@ -902,9 +902,11 @@ plugin_init(void)
 
 
 static struct service_priv *
-i2c_service_new(struct service_methods *meth,
+i2c_service_new(struct service_methods *
+						 meth,
 						 struct callback_list *cbl,
-						 struct attr ** attrs) 
+						 struct attr ** attrs,
+						struct attr *parent) 
 {
 	//*
     struct service_priv *i2c_plugin = g_new0 (struct service_priv, 1);
@@ -950,5 +952,5 @@ void
 plugin_init(void)
 { 
     dbg(lvl_info, "registering service type i2c-service\n");
-    plugin_register_service_type("i2c-service", i2c_service_new);
+    plugin_register_service_type("i2c_service", i2c_service_new);
 }
