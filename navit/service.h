@@ -41,6 +41,15 @@ struct service {
 	struct service_priv* priv;
 };
 
+struct service_property{
+	char *name;
+	struct service_property* parent;
+	int ro;
+	int num_children;
+	GList* children;
+	void* value;
+};
+
 
 struct service* service_new(struct attr* parent, struct attr** attrs);
 void service_destroy(struct service *this_);

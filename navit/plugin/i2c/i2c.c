@@ -26,22 +26,27 @@ struct navigation;
 uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_pwm_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+GList* init_pwm_properties(void* rx_data, void* tx_data);
 
 uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+GList* init_mfa_properties(void* rx_data, void* tx_data);
 
 uint8_t deserialize_wfs_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_wfs_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_wfs_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+GList* init_wfs_properties(void* rx_data, void* tx_data);
 
 uint8_t deserialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_v2v_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+GList* init_v2v_properties(void* rx_data, void* tx_data);
 
 uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_lsg_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+GList* init_lsg_properties(void* rx_data, void* tx_data);
 
 struct i2c_nav_data* get_navigation_data(struct service_priv *this);
 void get_audio_data(struct service_priv *this, uint8_t audio_str[AUDIO_STR_LENGTH]);
@@ -161,6 +166,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->serialize_rx = serialize_mfa_rxdata;
 						cd->serialize_tx = serialize_mfa_txdata;
 						cd->deserialize_rx = deserialize_mfa_rxdata;
+						cd->init_properties = init_mfa_properties;
 						cd->rx_size = sizeof(rx_mfa_t);
 						cd->tx_size = sizeof(tx_mfa_t);
 					}else if(port == calculateID("LSG")){
@@ -173,6 +179,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->serialize_rx = serialize_lsg_rxdata;
 						cd->serialize_tx = serialize_lsg_txdata;
 						cd->deserialize_rx = deserialize_lsg_rxdata;
+						cd->init_properties = init_lsg_properties;
 						cd->rx_size = sizeof(rx_lsg_t);
 						cd->tx_size = sizeof(tx_lsg_t);
 					}else if(port == calculateID("WFS")){
@@ -185,6 +192,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->serialize_rx = serialize_wfs_rxdata;
 						cd->serialize_tx = serialize_wfs_txdata;
 						cd->deserialize_rx = deserialize_wfs_rxdata;
+						cd->init_properties = init_wfs_properties;
 						cd->rx_size = sizeof(rx_wfs_t);
 						cd->tx_size = sizeof(tx_wfs_t);
 					}else if(port == calculateID("PWM")){
@@ -202,6 +210,7 @@ int init_i2c_devices(struct service_priv *this){
 						cd->serialize_rx = serialize_pwm_rxdata;
 						cd->serialize_tx = serialize_pwm_txdata;
 						cd->deserialize_rx = deserialize_pwm_rxdata;
+						cd->init_properties = init_pwm_properties;
 						cd->rx_size = sizeof(rx_pwm_t);
 						cd->tx_size = sizeof(tx_pwm_t);
 					}else if(port == calculateID("V2V")){
@@ -214,11 +223,13 @@ int init_i2c_devices(struct service_priv *this){
 						cd->serialize_rx = serialize_v2v_rxdata;
 						cd->serialize_tx = serialize_v2v_txdata;
 						cd->deserialize_rx = deserialize_v2v_rxdata;
+						cd->init_properties = init_v2v_properties;
 						cd->rx_size = sizeof(rx_v2v_t);
 						cd->tx_size = sizeof(tx_v2v_t);
 					}else{
 						cd->name = g_strdup("I2C");
 						cd->icon = "gui_inactive";
+						cd->init_properties = NULL;
 						return 0;
 					}
 					dbg(lvl_info, "Appending a Device %p\n", cd);
@@ -378,6 +389,92 @@ uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	return 1;
 }
 
+GList* init_pwm_properties(void *rx_data, void* tx_data){
+	GList* list = NULL;
+	rx_pwm_t* rx = (rx_pwm_t*) rx_data;
+	rx_pwm_t* tx = (rx_pwm_t*) tx_data;
+	struct service_property *p = g_new0(struct service_property,1);
+	if(rx->pwm_freq == tx->pwm_freq){
+		p->name = g_strdup("Frequency");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->pwm_freq;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+
+	if(rx->cal_voltage == tx->cal_voltage){
+		p->name = g_strdup("Calibration Voltage");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_voltage;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->cal_temperature == tx->cal_temperature){
+		p->name = g_strdup("Calibration Temperature");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_temperature;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->water_value == tx->water_value){
+		p->name = g_strdup("Enable Temperature");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->water_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->time_value == tx->time_value){
+		p->name = g_strdup("Enable Time");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->time_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	
+	p->name = g_strdup("Battery Voltage");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->vbat;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Water Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->water_temp;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Device Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->fet_temp;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	return list;
+}
+
 //*////////////////////////////////////////////////////////////////////////
 // MFA 
 ///////////////////////////////////////////////////////////////////////////
@@ -507,6 +604,172 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	rx->rpm = (uint16_t) (buffer[AUDIO_STR_LENGTH + 24] << 8) + buffer[AUDIO_STR_LENGTH + 25];
 	return 1;
 }
+GList* init_mfa_properties(void *rx_data, void* tx_data){
+	GList* list = NULL;
+	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
+	rx_mfa_t* tx = (rx_mfa_t*) tx_data;
+	struct service_property *p = g_new0(struct service_property,1);
+	
+	
+	if(rx->cal_water_temperature == tx->cal_water_temperature){
+		p->name = g_strdup("Water Temperature Calibration");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_water_temperature;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->cal_voltage == tx->cal_voltage){
+		p->name = g_strdup("Voltage Calibration");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_voltage;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->cal_oil_temperature == tx->cal_oil_temperature){
+		p->name = g_strdup("Oil Temperature Calibration");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_oil_temperature;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->cal_consumption == tx->cal_consumption){
+		p->name = g_strdup("Consumption Calibration");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_consumption;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	
+	p->name = g_strdup("Battery Voltage");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->voltage;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Water Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->water_temperature;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Ambient Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->ambient_temperature;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Oil Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->oil_temperature;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Ambient Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->ambient_temperature;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Radio Text");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) g_strdup(rx->radio_text);
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Consumption");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->consumption;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Average Consumption");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->average_consumption;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Speed");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->speed;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Average Speed");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->average_speed;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Speed");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->speed;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+		
+	p->name = g_strdup("RPM");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->rpm;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+			
+	p->name = g_strdup("Range");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->range;
+	list = g_list_append(list, p);
+
+	return list;
+}
 
 //*////////////////////////////////////////////////////////////////////////
 // LSG 
@@ -566,6 +829,75 @@ uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	return 1;
 }
 
+GList* init_lsg_properties(void *rx_data, void* tx_data){
+	GList* list = NULL;
+	rx_lsg_t* rx = (rx_lsg_t*) rx_data;
+	rx_lsg_t* tx = (rx_lsg_t*) tx_data;
+	struct service_property *p = g_new0(struct service_property,1);
+	if(rx->AL == tx->AL){
+		p->name = g_strdup("Automatic Light");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->AL;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+
+	if(rx->TFL == tx->TFL){
+		p->name = g_strdup("Daytime Running Light");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->TFL;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->ZV == tx->ZV){
+		p->name = g_strdup("Central Locking");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->ZV;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->LED == tx->LED){
+		p->name = g_strdup("LED Setting");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->LED;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->time_in == tx->time_in){
+		p->name = g_strdup("Delay Time Inside");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->time_in;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->time_out == tx->time_out){
+		p->name = g_strdup("Delay Time Outside");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->time_out;
+		list = g_list_append(list, p);
+	}
+	return list;
+}
+
+
 //*////////////////////////////////////////////////////////////////////////
 // WFS
 ///////////////////////////////////////////////////////////////////////////
@@ -601,6 +933,105 @@ uint8_t deserialize_wfs_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	//dbg(lvl_debug,"wfs: 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8], buffer[9]);
 	return 1;
 }
+
+GList* init_wfs_properties(void *rx_data, void* tx_data){
+	GList* list = NULL;
+/*	
+	rx_wfs_t* rx = (rx_wfs_t*) rx_data;
+	rx_wfs_t* tx = (rx_wfs_t*) tx_data;
+	struct service_property *p = g_new0(struct service_property,1);
+	if(rx->wfs_freq == tx->wfs_freq){
+		p->name = g_strdup("Frequency");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->wfs_freq;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+
+	if(rx->cal_voltage == tx->cal_voltage){
+		p->name = g_strdup("Calibration Voltage");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_voltage;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->cal_temperature == tx->cal_temperature){
+		p->name = g_strdup("Calibration Temperature");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_temperature;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->water_value == tx->water_value){
+		p->name = g_strdup("Enable Temperature");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->water_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->time_value == tx->time_value){
+		p->name = g_strdup("Enable Time");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->time_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->v == tx->time_value){
+		p->name = g_strdup("Enable Time");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->time_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	
+	p->name = g_strdup("Battery Voltage");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->vbat;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Water Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->water_temp;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Device Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->fet_temp;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+//*/
+	return list;
+}
+
 
 //*////////////////////////////////////////////////////////////////////////
 // V2V 
@@ -664,6 +1095,95 @@ uint8_t deserialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	dbg(lvl_info,"v2v:\nfreq: %i\ntemp: %i\nvtg: %i\nwatertemp_sh: %i\ntime_sh: %i\nvbat: %i\nwatertemp: %i\nfettemp:%i\n",rx->pwm_freq, rx->cal_temperature, rx->cal_voltage, rx->water_value, rx->time_value, rx->vbat, rx->water_temp, rx->fet_temp);
 	return 1;
 }
+
+GList* init_v2v_properties(void *rx_data, void* tx_data){
+	GList* list = NULL;
+	rx_v2v_t* rx = (rx_v2v_t*) rx_data;
+	rx_v2v_t* tx = (rx_v2v_t*) tx_data;
+//*	
+	struct service_property *p = g_new0(struct service_property,1);
+	if(rx->pwm_freq == tx->pwm_freq){
+		p->name = g_strdup("Frequency");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->pwm_freq;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+
+	if(rx->cal_voltage == tx->cal_voltage){
+		p->name = g_strdup("Calibration Voltage");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_voltage;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->cal_temperature == tx->cal_temperature){
+		p->name = g_strdup("Calibration Temperature");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->cal_temperature;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->water_value == tx->water_value){
+		p->name = g_strdup("Enable Temperature");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->water_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	if(rx->time_value == tx->time_value){
+		p->name = g_strdup("Enable Time");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = NULL;
+		p->children = NULL;
+		p->value = (void*) rx->time_value;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	
+	p->name = g_strdup("Battery Voltage");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->vbat;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Water Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->water_temp;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Device Temperature");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = NULL;
+	p->children = NULL;
+	p->value = (void*) rx->fet_temp;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	return list;
+//*/	
+}
+
 /*
 uint8_t serialize_v2v_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(tx_v2v_t)){
@@ -856,7 +1376,7 @@ i2c_task(struct service_priv *this){
 	}
 }
 int
-get_i2c_plugin(struct service_priv* p){
+i2c_get_plugin(struct service_priv* p){
 	p = &i2c_plugin;
 	return 1;
 }
@@ -899,7 +1419,65 @@ plugin_init(void)
 }
 //*/
 
+int i2c_set_attr(struct service_priv *priv, struct attr *attr){
+	switch(attr->type){
+		case attr_name:
+			priv->name = attr->u.str;
+			break;
+		/*
+		case attr_property:
+			//priv->properties->data = attr->u.str;
+			break;
+		//*/
+		default:
+		break;
+	}
+		return 1;
+}
 
+int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr){
+	switch(type){
+		case attr_name:
+			attr->u.str = priv->name;
+			break;
+		/*
+		case attr_property:
+			//priv->properties->data = attr->u.str;
+			break;
+		//*/
+		default:
+		break;
+	}
+		return 1;
+}
+
+GList* init_properties(struct service_priv *this){
+	GList *prop = g_new0(GList,1);
+	struct service_property *sp = g_new0(struct service_property,1);
+	
+	this->connected_devices = g_list_first(this->connected_devices);
+	int num_devices = g_list_length(this->connected_devices);
+	dbg(lvl_info, "%i connected devices\n", num_devices);
+	if(this->device){
+		while(num_devices--){
+			if(this->connected_devices->data){
+				struct connected_devices* cd = this->connected_devices->data;
+				uint8_t cnt = cd->num_properties;
+				while(cnt--){
+					sp = cd->init_properties(cnt, cd);
+					g_list_append(prop, sp);
+				}
+				if(this->connected_devices->next)
+					this->connected_devices = this->connected_devices->next;
+				else
+					break;
+			}
+		}
+		
+	
+		
+	}
+}
 
 static struct service_priv *
 i2c_service_new(struct service_methods *
@@ -925,7 +1503,7 @@ i2c_service_new(struct service_methods *
 	i2c_plugin->navigation_data = g_new0(struct i2c_nav_data, 1);
 	
 	dbg(lvl_debug,"I2C Test\n");
-	
+
 	i2c_plugin->device = open_i2c(i2c_plugin->source);
 	check_ioctl(i2c_plugin->device);
 	if(init_i2c_devices(i2c_plugin)){
@@ -937,6 +1515,9 @@ i2c_service_new(struct service_methods *
 	}else{
 		dbg(lvl_error, "No I2C Devices found\n");
 	}
+	
+	i2c_plugin->properties = init_properties(i2c_plugin);
+	
 	i2c_plugin->cbl = cbl;
     *meth=i2c_service_meth;
     

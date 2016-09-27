@@ -71,6 +71,8 @@ struct service_priv{
 	struct callback_list *cbl;
 	struct attr** attrs;
 	char* source;
+	char* name;
+	GList* properties;
     int device;
     int last_status;
     int last_next_turn;
@@ -89,9 +91,11 @@ struct connected_devices{
 	void* tx_data;
 	uint8_t rx_size;
 	uint8_t tx_size;
+	uint8_t num_properties;
 	uint8_t (*serialize_tx)(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
 	uint8_t (*serialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 	uint8_t (*deserialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]); 
+	GList* (*init_properties)(void *rx_data, void* tx_data);
 };
 
 typedef struct txdataLSG{
@@ -243,12 +247,14 @@ rx_mfa_t *rx_mfa = NULL;
 tx_mfa_t *tx_mfa = NULL;
 
 void read_i2c_frame(int device, uint8_t* data, uint8_t size);
-int get_i2c_plugin(struct service_priv* p);
+int i2c_get_plugin(struct service_priv* p);
+int i2c_set_attr(struct service_priv *priv, struct attr *attr);
+int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr);
 
 static struct service_methods i2c_service_meth = {
-		get_i2c_plugin,
-		NULL,
-		NULL,
+		i2c_get_plugin,
+		i2c_set_attr,
+		i2c_get_attr,
 };
 
 
