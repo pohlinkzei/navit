@@ -35,6 +35,8 @@ struct service_methods {
 	void (*plugin)(struct service_priv *priv);
 	int (*set_attr)(struct service_priv *priv, struct attr *attr);
 	int (*get_attr)(struct service_priv *priv,enum attr_type type, struct attr *attr);
+	GList* (*get_properties)(struct service_priv *priv);
+	struct service_property* (*set_property)(struct service_priv *priv, struct service_property* sp);
 };
 
 struct service {
