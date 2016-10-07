@@ -38,7 +38,7 @@ struct service_priv;
 GList *
 service_get_properties(struct service *this_)
 {
-	GList *ret = NULL;s
+	GList *ret = NULL;
 	dbg(lvl_info,"Went thru one plugin at %p with name %s\n", this_, this_->name);
 	if(this_->meth.get_properties && this_->meth.get_properties != 0xffffffff ) {
 		GList * (*f)(struct service_priv *this)=this_->meth.get_properties+0;
