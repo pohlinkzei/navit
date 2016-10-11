@@ -88,6 +88,7 @@ struct service_priv{
 	struct navit* nav;
 	struct callback_list *cbl;
 	struct attr** attrs;
+	struct service* parent;
 	char* source;
 	char* name;
 	char* icon;

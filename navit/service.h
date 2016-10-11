@@ -49,6 +49,7 @@ struct service {
 
 struct service_property{
 	char *name;
+	struct service *root;
 	struct service_property* parent;
 	int ro;
 	int num_children;

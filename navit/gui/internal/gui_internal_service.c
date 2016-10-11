@@ -119,8 +119,11 @@ gui_internal_service_edit_property(struct gui_priv *this, struct service_propert
 	wl->cols = this->root.w / this->icon_s;
 	nrows = nitems / wl->cols + (nitems % wl->cols > 0);
 	wl->h = this->icon_l *nrows;
-	
-	wb = gui_internal_button_new_with_callback(this, "back", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_root, NULL);
+	if(p->root){
+		wb = gui_internal_button_new_with_callback(this, "back", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_devicelist, p->root);
+	}else{
+		wb = gui_internal_button_new_with_callback(this, "back", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_root, NULL);
+	}
 	gui_internal_widget_append(wl, wb);
 	if(p->ro == 0){
 		wb = gui_internal_button_new_with_callback(this, "-", NULL, gravity_left_center | orientation_horizontal, decrease_value, p);
