@@ -192,6 +192,7 @@ typedef struct txdataMFA{
 	uint8_t cal_voltage;
 	uint8_t cal_oil_temperature;
 	uint8_t cal_consumption;	
+	uint8_t cal_speed;
 	// other values from pwm module?
 }tx_mfa_t;
 /*
@@ -222,7 +223,8 @@ typedef struct rxdataMFA{
 	uint8_t cal_water_temperature;
 	uint8_t cal_voltage;
 	uint8_t cal_oil_temperature;
-	uint8_t cal_consumption;
+	uint8_t cal_consumption;	
+	uint8_t cal_speed;
 	// read only
 	int8_t water_temperature;
 	int8_t ambient_temperature;
@@ -320,7 +322,7 @@ static struct service_methods i2c_service_meth = {
 
 
 int i2c_set_attr(struct service_priv *priv, struct attr *attr){
-	dbg(lvl_error, "i2c_set_attr(struct service_priv=%p, struct attr=%p)\n", priv,  attr);
+	dbg(lvl_info, "i2c_set_attr(struct service_priv=%p, struct attr=%p)\n", priv,  attr);
 	switch(attr->type){
 		case attr_name:
 			priv->name = attr->u.str;
@@ -337,7 +339,7 @@ int i2c_set_attr(struct service_priv *priv, struct attr *attr){
 }
 
 int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr){
-	dbg(lvl_error, "i2c_get_attr(struct service_priv=%p, enum attr_type=%p (%s), struct attr=%p)\n", priv, type, attr_to_name(type), attr);
+	dbg(lvl_info, "i2c_get_attr(struct service_priv=%p, enum attr_type=%p (%s), struct attr=%p)\n", priv, type, attr_to_name(type), attr);
 	switch(type){
 		case attr_type:
 			attr->u.str = priv->name;
@@ -558,11 +560,12 @@ void get_audio_data(struct service_priv* this, uint8_t audio_str[AUDIO_STR_LENGT
 	strcat(str, " - ");
 	strcat(str, audio_get_current_playlist(this->nav));
 #else
-	sprintf(str, "No Audio Plugin found!");
+	sprintf(str, "No Audio Plugin found! ");
 #endif
 for (i=0; i< AUDIO_STR_LENGTH; i++){
 		audio_str[i] = str[i];
 	}
+	audio_str[i] = ' ';
 }
 
 
@@ -599,38 +602,39 @@ get_navigation_data(struct service_priv* this){
 	uint8_t status = 0, navigation_next_turn = 0;
 	char* name = "null";
 	struct navit* navit = this->nav;
-	if(nav_data){
-	if (navit)
+	dbg(lvl_debug, "navit: %p\n", navit);
+	if(nav_data && navit){
 		nav = navit_get_navigation(navit);
-	if (nav){
-		map = navigation_get_map(nav);
-		struct attr item1;
-		navigation_get_attr(nav, attr_length, &item1, NULL);
-		dbg(lvl_info, "length: %i\n", round_distance(item1.u.num));
-		nav_data->distance_to_next_turn = round_distance(item1.u.num);
-		
-		if (navigation_get_attr(nav, attr_nav_status, &attr, NULL)){
-			uint8_t status = attr.u.num;
-			uint8_t status2 = (status == 3) ? 4 : status;
+		if (nav){
+			dbg(lvl_debug, "navigation: %p\n", nav);
+			map = navigation_get_map(nav);
+			struct attr item1;
+			navigation_get_attr(nav, attr_length, &item1, NULL);
+			dbg(lvl_info, "length: %i\n", round_distance(item1.u.num));
+			nav_data->distance_to_next_turn = round_distance(item1.u.num);
+			
+			if (navigation_get_attr(nav, attr_nav_status, &attr, NULL)){
+				uint8_t status = attr.u.num;
+				uint8_t status2 = (status == 3) ? 4 : status;
 
-			if ((status2 != this->last_status) && (status2 != status_invalid)) {
-				this->last_status = status2;
-				dbg(lvl_info, "status=%s\n", nav_status_to_text(status2));
-				nav_data->nav_status = status;
+				if ((status2 != this->last_status) && (status2 != status_invalid)) {
+					this->last_status = status2;
+					dbg(lvl_info, "status=%s\n", nav_status_to_text(status2));
+					nav_data->nav_status = status;
+				}
 			}
 		}
-	}
-	if (map)
-		mr = map_rect_new(map, NULL);
-	if (mr)
-		while ((item = map_rect_get_item(mr))
-		       && (item->type == type_nav_position || item->type == type_nav_none));
-	if (item) {
-		name = item_to_name(item->type);
-		//navigation.item[1].length[named]
-	}
-	dbg(lvl_info, "name=%s\n", name);
-	nav_data->next_turn = get_next_turn_by_name(name);
+		if (map)
+			mr = map_rect_new(map, NULL);
+		if (mr)
+			while ((item = map_rect_get_item(mr))
+				   && (item->type == type_nav_position || item->type == type_nav_none));
+		if (item) {
+			name = item_to_name(item->type);
+			//navigation.item[1].length[named]
+		}
+		dbg(lvl_info, "name=%s\n", name);
+		nav_data->next_turn = get_next_turn_by_name(name);
 	}
 	return nav_data;
 }
@@ -1609,9 +1613,11 @@ void process_i2c_data(struct service_priv* this, struct connected_devices* cd){
 		
 		struct i2c_nav_data* navigation_data = get_navigation_data(this);
 		get_audio_data(this, tx_mfa->radio_text);
-		tx_mfa->distance_to_next_turn = navigation_data->distance_to_next_turn;
-		tx_mfa->navigation_next_turn = navigation_data->nav_status && (navigation_data->nav_status << 4);
-		dbg(lvl_info,"Send NAV data: %i, %i\n", tx_mfa->distance_to_next_turn,tx_mfa->navigation_next_turn);
+		if(navigation_data){
+			tx_mfa->distance_to_next_turn = navigation_data->distance_to_next_turn;
+			tx_mfa->navigation_next_turn = navigation_data->nav_status && (navigation_data->nav_status << 4);
+			dbg(lvl_info,"Send NAV data: %i, %i\n", tx_mfa->distance_to_next_turn,tx_mfa->navigation_next_turn);
+		}
 	}else if(port == calculateID("LSG")){
 		tx_lsg->AL = 1;
 		tx_lsg->TFL = 0;
@@ -1686,7 +1692,7 @@ i2c_task(struct service_priv *this){
 }
 
 GList* i2c_get_properties(struct service_priv *priv){
-	dbg(lvl_error,"Found Properties %p\n", priv->properties);
+	dbg(lvl_info,"Found Properties %p\n", priv->properties);
 	return priv->properties;
 }
 
@@ -1748,18 +1754,18 @@ GList* init_properties(struct service_priv *this){
 
 	this->connected_devices = g_list_first(this->connected_devices);
 	int num_devices = g_list_length(this->connected_devices);
-	dbg(lvl_error, "%i connected devices\n", num_devices);
+	dbg(lvl_info, "%i connected devices\n", num_devices);
 	if(this->device){
 		while(num_devices--){
 			if(this->connected_devices->data){
 				struct connected_devices* cd = this->connected_devices->data;
 				struct service_property *sp = g_new0(struct service_property,1);
-				dbg(lvl_error, "init device %s\n", cd->name);
+				dbg(lvl_info, "init device %s\n", cd->name);
 				sp->name = cd->name;
 				sp->parent = NULL;
 				sp->ro = 0;
 				sp->num_children = cd->num_properties;
-				dbg(lvl_error, "parent = %p, ro = %i, num_children = %i\n", sp->parent, sp->ro, sp->num_children);
+				dbg(lvl_info, "parent = %p, ro = %i, num_children = %i\n", sp->parent, sp->ro, sp->num_children);
 				uint8_t cnt = cd->num_properties;
 				while(cnt--){
 					sp->children = cd->init_properties(cd->rx_data, cd->tx_data, sp);
@@ -1786,11 +1792,10 @@ i2c_service_new(struct service_methods *
 	//*
     struct service_priv *i2c_plugin = g_new0 (struct service_priv, 1);
     struct attr *attr;
-    if ((attr = attr_search (attrs, NULL, attr_source)))
-      {
-          i2c_plugin->source = g_strdup(attr->u.str);
-          //dbg (lvl_info, "found source attr: %s\n", attr->u.str);
-      }
+    if ((attr = attr_search (attrs, NULL, attr_source))){
+		i2c_plugin->source = g_strdup(attr->u.str);
+		dbg (lvl_info, "Navit: %s\n", i2c_plugin->source);
+	}
    
     dbg (lvl_debug,  "Callback created successfully\n");
 	i2c_plugin->attrs=attrs;
@@ -1798,8 +1803,6 @@ i2c_service_new(struct service_methods *
 	/* Init i2c Bus & local data 
 	*/ 
 	i2c_plugin->navigation_data = g_new0(struct i2c_nav_data, 1);
-	
-	dbg(lvl_debug,"I2C Test\n");
 
 	i2c_plugin->device = open_i2c(i2c_plugin->source);
 	check_ioctl(i2c_plugin->device);
@@ -1816,9 +1819,9 @@ i2c_service_new(struct service_methods *
 	i2c_plugin->properties = init_properties(i2c_plugin);
 	
 	i2c_plugin->cbl = cbl;
-	dbg(lvl_error, "Methods: %p\n",meth);
+	dbg(lvl_info, "Methods: %p\n",meth);
     *meth=i2c_service_meth;
-    dbg(lvl_error, "Methods: Plugin: %p, Get: %p, Set: %p\n",meth->plugin, meth->get_attr, meth->set_attr);
+    dbg(lvl_info, "Methods: Plugin: %p, Get: %p, Set: %p\n",meth->plugin, meth->get_attr, meth->set_attr);
    
 	
     return i2c_plugin;
@@ -1834,5 +1837,5 @@ void
 plugin_init(void)
 { 
     dbg(lvl_info, "registering service category i2c-service\n");
-    plugin_register_service_category("i2c_service", i2c_service_new);
+    plugin_register_category_service("i2c_service", i2c_service_new);
 }

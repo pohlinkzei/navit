@@ -39,11 +39,11 @@ GList *
 service_get_properties(struct service *this_)
 {
 	GList *ret = NULL;
-	dbg(lvl_error,"Went thru one plugin at %p with name %s\n", this_, this_->name);
+	dbg(lvl_info,"Went thru one plugin at %p with name %s\n", this_, this_->name);
 	if(this_->meth.get_properties && this_->meth.get_properties != 0xffffffff ) {
 		GList * (*f)(struct service_priv *this)=this_->meth.get_properties+0;
 		ret=f(this_->priv);
-		dbg(lvl_error,"Found Properties %p\n", ret);
+		dbg(lvl_info,"Found Properties %p\n", ret);
 	}
 	return(ret);
 }
@@ -60,7 +60,7 @@ service_get_properties(struct service *this_)
 int
 service_get_attr(struct service *this_, enum attr_type type, struct attr *attr, struct attr_iter *iter)
 {
-	dbg(lvl_error, "Get ATTR: %p (%s), this: %p\n",attr, type?attr_to_name(type):"X", this_);
+	dbg(lvl_info, "Get ATTR: %p (%s), this: %p\n",attr, type?attr_to_name(type):"X", this_);
 	
 	int ret=1;
 	if (this_->meth.get_attr) {
@@ -82,14 +82,14 @@ service_get_attr(struct service *this_, enum attr_type type, struct attr *attr, 
 int
 service_set_attr(struct service *this_, struct attr *attr)
 {
-	dbg(lvl_error, "Set ATTR: %p (%s), this: %p\n",attr, attr_to_name(attr->type), this_);
+	dbg(lvl_info, "Set ATTR: %p (%s), this: %p\n",attr, attr_to_name(attr->type), this_);
 	int ret=1;
 	switch(attr->type){
 		case attr_name:
-		dbg(lvl_error, "ATTR_NAME");
+		dbg(lvl_info, "ATTR_NAME");
 		break;
 		case attr_callback:
-		dbg(lvl_error, "ATTR_Callback");
+		dbg(lvl_info, "ATTR_Callback");
 		callback_list_add(this_->cbl, attr->u.callback);
 		break;
 		default:
@@ -114,7 +114,7 @@ service_set_attr(struct service *this_, struct attr *attr)
 int
 service_add_attr(struct service *this_, struct attr *attr)
 {
-	dbg(lvl_error, "Add ATTR: %p (%s), this: %p\n",attr, attr->type?attr_to_name(attr->type):"X", this_);
+	dbg(lvl_info, "Add ATTR: %p (%s), this: %p\n",attr, attr->type?attr_to_name(attr->type):"X", this_);
 	int ret=1;
 	switch (attr->type) {
 	case attr_callback:
@@ -138,7 +138,7 @@ service_add_attr(struct service *this_, struct attr *attr)
 int
 service_remove_attr(struct service *this_, struct attr *attr)
 {
-	dbg(lvl_error, "Remove ATTR: %p (%s), this: %p\n",attr, attr->type?attr_to_name(attr->type):"X", this_);
+	dbg(lvl_info, "Remove ATTR: %p (%s), this: %p\n",attr, attr->type?attr_to_name(attr->type):"X", this_);
 	
 	struct callback *cb;
 	switch (attr->type) {
@@ -175,18 +175,16 @@ service_new(struct attr* parent, struct attr** attrs)
 						 struct attr ** attrs);
 
 	dbg(lvl_error, "enter\n");
-
-	
 	
 	attr=attr_search(attrs, NULL, attr_type);
 	if (! attr) {
 			dbg(lvl_error, "incomplete service definition: missing type attribute!\n");
 			return NULL;
 	}
-	dbg(lvl_error,"type='%s'\n", attr->u.str);
+	dbg(lvl_info,"type='%s'\n", attr->u.str);
 	servicetype_new=plugin_get_category_service(attr->u.str);
-	dbg(lvl_error,"new=%p\n", service_new);
-	if (! servicetype_new) {
+	dbg(lvl_info,"new=%p\n", servicetype_new);
+	if (!servicetype_new) {
 			dbg(lvl_error,"wrong type '%s'\n", attr->u.str);
 			return NULL;
 	}
@@ -194,7 +192,7 @@ service_new(struct attr* parent, struct attr** attrs)
 	this_ = g_new0(struct service, 1);
 	this_->func=&service_func;
 	this_->name = g_strdup(attr->u.str);
-	dbg(lvl_error, "%s\n",  this_->name);
+	dbg(lvl_info, "%s\n",  this_->name);
 	//this_->icon = NULL;
 	navit_object_ref((struct navit_object *)this_);
 	
@@ -210,7 +208,7 @@ service_new(struct attr* parent, struct attr** attrs)
 	}
 	this_->attrs=attr_list_dup(attrs);
 
-	dbg(lvl_error, "leave %p\n", &this_->meth);
+	dbg(lvl_info, "leave %p\n", &this_->meth);
 
 	return this_;
 }

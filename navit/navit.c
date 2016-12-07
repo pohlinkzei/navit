@@ -3398,8 +3398,6 @@ navit_add_service(struct navit *this_, struct service *serv)
 	navit_service->callback.type=attr_callback;
 	//navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_fix_type, this_, navit_service, attr_position_fix_type);
 	service_add_attr(navit_service->service, &navit_service->callback);
-	//*/
-	service_set_attr(navit_service->service, &this_->self);
 	
 	dbg(lvl_error, "Navit Add Service %p (%s) to List %p\n", serv,serv->name, this_->services); 
 	return 1;
