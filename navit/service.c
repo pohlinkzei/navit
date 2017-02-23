@@ -156,7 +156,7 @@ service_new(struct attr* parent, struct attr** attrs)
 			return NULL;
 	}
 	dbg(lvl_error,"type='%s'\n", attr->u.str);
-	servicetype_new=plugin_get_service_type(attr->u.str);
+	servicetype_new=plugin_get_category_service(attr->u.str);
 	dbg(lvl_error,"new=%p\n", service_new);
 	if (! servicetype_new) {
 			dbg(lvl_error,"wrong type '%s'\n", attr->u.str);
