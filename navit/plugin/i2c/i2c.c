@@ -1833,6 +1833,6 @@ i2c_service_new(struct service_methods *
 void
 plugin_init(void)
 { 
-    dbg(lvl_info, "registering service type i2c-service\n");
-    plugin_register_service_type("i2c_service", i2c_service_new);
+    dbg(lvl_info, "registering service category i2c-service\n");
+    plugin_register_service_category("i2c_service", i2c_service_new);
 }
