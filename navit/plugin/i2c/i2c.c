@@ -32,26 +32,7 @@ char result[6] = {0,};
 unsigned char i2ctxdata[128] = {0,};
 unsigned char i2crxdata[128] = {0,};
 struct service_priv *i2c_plugin;
-/*
-extern rx_lsg_t *rx_lsg;
-extern tx_lsg_t *tx_lsg;
-extern rx_pwm_t *rx_pwm;
-extern tx_pwm_t *tx_pwm;
-extern rx_wfs_t *rx_wfs;
-extern tx_wfs_t *tx_wfs;
-extern rx_v2v_t *rx_v2v;
-extern tx_v2v_t *tx_v2v;
-extern rx_mfa_t *rx_mfa;
-extern tx_mfa_t *tx_mfa;
-*/
 
-/*
-static struct service_methods i2c_service_meth = {
-		i2c_get_plugin,
-		i2c_set_attr,
-		i2c_get_attr,
-};
-*/
 
 struct navigation_itm;
 struct navigation;
@@ -73,6 +54,9 @@ static struct service_methods i2c_service_meth = {
 int i2c_set_attr(struct service_priv *priv, struct attr *attr){
 	dbg(lvl_info, "i2c_set_attr(struct service_priv=%p, struct attr=%p)\n", priv,  attr);
 	switch(attr->type){
+		case attr_navit:
+			priv->nav = attr->u.navit;
+			break;
 		case attr_name:
 			priv->name = attr->u.str;
 			break;
@@ -546,11 +530,13 @@ i2c_service_new(struct service_methods *
 	i2c_plugin->attrs=attrs;
 	//i2c_plugin->nav=nav;
 	/* Init i2c Bus & local data 
-	*/ 
+	//*/ 
 	i2c_plugin->navigation_data = g_new0(struct i2c_nav_data, 1);
 
 	i2c_plugin->device = open_i2c(i2c_plugin->source);
-	check_ioctl(i2c_plugin->device);
+	if(check_ioctl(i2c_plugin->device)){
+		//no i2c ioctl found: We are probably on a testing vm... set dummy data
+	}
 	if(init_i2c_devices(i2c_plugin)){
 		i2c_plugin->task = callback_new_1 (callback_cast (i2c_task), i2c_plugin);
 		i2c_plugin->timeout = event_add_timeout(1000, 1,  i2c_plugin->task);

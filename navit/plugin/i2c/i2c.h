@@ -73,6 +73,10 @@
 #include <audio.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
+
 #define AUDIO_STR_LENGTH 38
 struct navigation_itm;
 struct navigation;
@@ -120,6 +124,7 @@ struct connected_devices{
 
 void read_i2c_frame(int device, uint8_t* data, uint8_t size);
 //*
+uint8_t calculateID(char* name);
 void i2c_get_plugin(struct service_priv* p);
 int i2c_set_attr(struct service_priv *priv, struct attr *attr);
 int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *attr);
@@ -127,5 +132,7 @@ GList* i2c_get_properties(struct service_priv *priv);
 struct service_property* i2c_set_property(struct service_priv *priv, struct service_property* sp);
 struct i2c_nav_data* get_navigation_data(struct service_priv *this);
 void get_audio_data(struct service_priv *this, uint8_t audio_str[AUDIO_STR_LENGTH]);
-
+#ifdef __cplusplus
+}
+#endif
 #endif
