@@ -49,6 +49,20 @@ extern "C" {
 
 #define AUDIO_STR_LENGTH 38
 
+typedef struct txdataSTUB{
+	uint32_t distance_to_next_turn;
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;
+	uint8_t calibration;
+}tx_stub_t;
+	
+typedef struct rxdataSTUB{
+	uint32_t distance_to_next_turn;
+	uint8_t radio_text[AUDIO_STR_LENGTH];
+	uint8_t navigation_next_turn;
+	uint8_t calibration;
+}rx_stub_t;
+
 typedef struct txdataLSG{
 	uint8_t AL;
 	uint8_t TFL;
@@ -196,6 +210,9 @@ extern rx_v2v_t *rx_v2v;
 extern tx_v2v_t *tx_v2v;
 extern rx_mfa_t *rx_mfa;
 extern tx_mfa_t *tx_mfa;
+
+extern tx_stub_t *tx_stub;
+extern rx_stub_t *rx_stub;
 
 int init_i2c_devices(struct service_priv *this);
 #ifdef __cplusplus

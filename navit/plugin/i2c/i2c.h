@@ -102,6 +102,7 @@ struct service_priv{
     struct callback* task;
     struct callback* callback;
     int timeout;
+    int stub;
     GList* connected_devices;
     struct i2c_nav_data* navigation_data;
 };

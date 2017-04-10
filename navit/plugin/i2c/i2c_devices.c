@@ -31,6 +31,11 @@ tx_v2v_t *tx_v2v = NULL;
 rx_mfa_t *rx_mfa = NULL;
 tx_mfa_t *tx_mfa = NULL;
 
+uint8_t deserialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
+uint8_t serialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
+uint8_t serialize_stub_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
+GList* init_stub_properties(void* rx_data, void* tx_data, struct service_property *parent);
+
 uint8_t deserialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_pwm_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_pwm_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
@@ -55,6 +60,149 @@ uint8_t deserialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 uint8_t serialize_lsg_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_lsg_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
 GList* init_lsg_properties(void* rx_data, void* tx_data, struct service_property *parent);
+
+///////////////////////////////////////////////////////////////////////////
+// STUB 
+///////////////////////////////////////////////////////////////////////////
+//*
+uint8_t serialize_stub_txdata(void *tx_data, uint8_t size, volatile uint8_t buffer[size]){
+	if(size != sizeof(tx_stub_t)){
+		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_stub_t));
+		return 0;
+	}
+	char str[2560] = {0,};
+	tx_stub_t* tx = (tx_stub_t*) tx_data;
+	dbg(lvl_debug,"\nserialize_stub_txdata:%i\n%s\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->calibration);
+	uint8_t i;
+	for(i=0;i<32;i++){
+		buffer[i] = tx->radio_text[i];
+	}
+	buffer[32] = tx->navigation_next_turn;//or status
+	buffer[33] = (uint8_t) ((tx->distance_to_next_turn & 0xFF000000) >> 24);
+	buffer[34] = (uint8_t) ((tx->distance_to_next_turn & 0x00FF0000) >> 16);
+	buffer[35] = (uint8_t) ((tx->distance_to_next_turn & 0x0000FF00) >> 8);
+	buffer[36] = (uint8_t) ((tx->distance_to_next_turn & 0x000000FF));
+	//navigation active?
+	buffer[37] = tx->calibration;
+	
+	sprintf(str,"stub:");
+	for(i=0;i<size; i++){
+		char buf[6] = {0,};
+		sprintf(buf, " 0x%02X", buffer[i]);
+		strcat(str, buf);
+	}
+	dbg(lvl_debug,"%s\n", str);
+	return 1;
+}
+
+uint8_t serialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
+	if(size != sizeof(rx_stub_t)){
+		return 0;
+	}
+	rx_stub_t* rx = (rx_stub_t*) rx_data;
+	dbg(lvl_debug,"\nserialize_stub_rxdata:%i\n%s\n%i\n%i\n%",size,rx->radio_text, rx->navigation_next_turn, rx->calibration);
+	char str[2560] = {0,};
+	uint8_t i;
+	for(i=0;i<AUDIO_STR_LENGTH;i++){
+		buffer[i] = rx->radio_text[i];
+	}
+	buffer[AUDIO_STR_LENGTH] = rx->navigation_next_turn;//or status
+	buffer[AUDIO_STR_LENGTH + 1] = (uint8_t) ((rx->distance_to_next_turn & 0xFF000000) >> 24);
+	buffer[AUDIO_STR_LENGTH + 2] = (uint8_t) ((rx->distance_to_next_turn & 0x00FF0000) >> 16);
+	buffer[AUDIO_STR_LENGTH + 3] = (uint8_t) ((rx->distance_to_next_turn & 0x0000FF00) >> 8);
+	buffer[AUDIO_STR_LENGTH + 4] = (uint8_t) ((rx->distance_to_next_turn & 0x000000FF));
+	//navigation active?
+	buffer[AUDIO_STR_LENGTH + 5] = rx->calibration;
+	
+	
+	sprintf(str,"stub:");
+	for(i=0;i<size; i++){
+		char buf[6] = {0,};
+		sprintf(buf, " 0x%02X", buffer[i]);
+		strcat(str, buf);
+	}
+	dbg(lvl_debug,"%s\n", str);
+	return 1;
+}
+
+uint8_t deserialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]){
+	if(size != sizeof(rx_stub_t)){
+		return 0;
+	}
+	rx_stub_t* rx = (rx_stub_t*) rx_data;
+	uint8_t i;
+	char str[2560] = {0,};
+	dbg(lvl_debug,"\ndeserialize_stub_rxdata:%i\n", size);
+	sprintf(str,"stub:");
+	for(i=0;i<size; i++){
+		char buf[6] = {0,};
+		sprintf(buf, " 0x%02X", buffer[i]);
+		strcat(str, buf);
+	}
+	dbg(lvl_debug,"%s\n", str);
+	
+	for(i=0;i<AUDIO_STR_LENGTH;i++){
+		rx->radio_text[i] = buffer[i];
+	}
+	
+	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH];
+	rx->distance_to_next_turn = ((long) buffer[AUDIO_STR_LENGTH + 1] << 24) 
+		+ ((long) buffer[AUDIO_STR_LENGTH + 2] << 16) 
+		+ ((long) buffer[AUDIO_STR_LENGTH + 3] << 8) 
+		+ buffer[AUDIO_STR_LENGTH + 4];
+	//navigation active?
+	rx->calibration = buffer[AUDIO_STR_LENGTH + 5];
+	
+	return 1;
+}
+
+GList* init_stub_properties(void *rx_data, void* tx_data, struct service_property *parent){
+	GList* list = NULL;
+	rx_stub_t* rx = (rx_stub_t*) rx_data;
+	rx_stub_t* tx = (rx_stub_t*) tx_data;
+	struct service_property *p = g_new0(struct service_property,1);
+	
+	if(rx->calibration == tx->calibration){
+		p->name = g_strdup("Calibration");
+		p->ro = 0;
+		p->num_children = 0;
+		p->parent = parent;
+		p->children = NULL;
+		p->value = (void*) &rx->calibration;
+		list = g_list_append(list, p);
+		p=g_new0(struct service_property,1);
+	}
+	
+	p->name = g_strdup("Navigation Next Turn");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = parent;
+	p->children = NULL;
+	p->value = (void*) &rx->navigation_next_turn;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Distance To Next");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = parent;
+	p->children = NULL;
+	p->value = (void*) &rx->distance_to_next_turn;
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	p->name = g_strdup("Radio Text");
+	p->ro = 1;
+	p->num_children = 0;
+	p->parent = parent;
+	p->children = NULL;
+	p->value = (void*) g_strdup(rx->radio_text);
+	list = g_list_append(list, p);
+	p=g_new0(struct service_property,1);
+	
+	return list;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 // PWM 
@@ -1060,6 +1208,21 @@ int init_i2c_devices(struct service_priv *this){
 				}
 			}
 		}
+	}else if(this->stub){
+		struct connected_devices *cd = g_new0(struct connected_devices, 1);
+		rx_stub = (rx_stub_t*) malloc(sizeof(rx_stub_t)); 
+		tx_stub = (tx_stub_t*) malloc(sizeof(tx_stub_t)); 
+		cd->name = g_strdup("I2Cstub");
+		cd->icon = "gui_inactive";
+		cd->rx_data = rx_stub;
+		cd->tx_data = tx_stub;
+		cd->init_properties = init_stub_properties;
+		cd->serialize_rx = serialize_stub_rxdata;
+		cd->serialize_tx = serialize_stub_txdata;
+		cd->deserialize_rx = deserialize_stub_rxdata;
+		cd->num_properties = 3;
+		dbg(lvl_info, "Appending a Device %p\n", cd);
+		this->connected_devices = g_list_append(this->connected_devices, cd);
 	}
 	return 1;
 }

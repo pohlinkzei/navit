@@ -129,6 +129,7 @@ uint8_t calculateCRC8(uint8_t crc, uint8_t* data, uint8_t len){
 
 
 int open_i2c(const char* device){
+	dbg(lvl_info, "\n");
 	int dev_h = open(device, O_RDWR);
 	if(dev_h < 0){
 		perror("Error: Can't open I2C device!\n");
@@ -138,6 +139,7 @@ int open_i2c(const char* device){
 }
 
 unsigned long check_ioctl(int device){
+	dbg(lvl_info, "\n");
 	unsigned long funcs;
 	if(ioctl(device, I2C_FUNCS, &funcs) < 0){
 		perror("Error: No I2C functions found!\n");
@@ -153,6 +155,7 @@ unsigned long check_ioctl(int device){
 }
 
 void scan_i2c_bus(int device){
+	dbg(lvl_info, "\n");
 	int port, res;
 	if(device){
 		for(port = 0; port < 127; port++){
@@ -426,6 +429,23 @@ GList* i2c_get_properties(struct service_priv *priv){
 }
 
 struct service_property* i2c_set_property(struct service_priv *priv, struct service_property* sp){
+	//*
+	GList* service_properties = priv->properties;
+	while(service_properties->next){
+		struct service_property *service_property = (struct service_property*) service_properties->data;
+		if(!strcmp(sp->name, service_property->name)){
+			if(!service_property->ro){
+				service_property->children = sp->children;
+				service_property->value = sp->value;
+				service_property->num_children = sp->num_children;
+				service_property->parent = sp->parent;
+				service_property->root = sp->root;
+			}
+			return service_property;
+		}
+		service_properties = service_properties->next;
+	}
+	//*/
 	return NULL;
 }
 
@@ -534,8 +554,12 @@ i2c_service_new(struct service_methods *
 	i2c_plugin->navigation_data = g_new0(struct i2c_nav_data, 1);
 
 	i2c_plugin->device = open_i2c(i2c_plugin->source);
-	if(check_ioctl(i2c_plugin->device)){
+	if(!i2c_plugin->device){
+		dbg(lvl_error, "no i2c ioctl found\n");
+		i2c_plugin->stub = 1;
 		//no i2c ioctl found: We are probably on a testing vm... set dummy data
+	}else{
+		check_ioctl(i2c_plugin->device);
 	}
 	if(init_i2c_devices(i2c_plugin)){
 		i2c_plugin->task = callback_new_1 (callback_cast (i2c_task), i2c_plugin);

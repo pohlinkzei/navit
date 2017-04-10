@@ -228,16 +228,18 @@ gui_internal_service_devicelist (struct gui_priv *this, struct widget *wm, void 
 	
 	while(properties){
 		struct service_property *p = properties->data;
-		dbg (lvl_error, "Service Property %p, Name: %s\n", p, p->name);
-		row = gui_internal_widget_table_row_new (this, gravity_left | flags_fill | orientation_horizontal);
-		wbm = gui_internal_button_new_with_callback (this,
-						 p->name,image_new_s (this,/* (service->icon) ? (service->icon) : */("gui_inactive")),
-						 gravity_left_center |
-						 orientation_horizontal | flags_fill, gui_internal_service_property, p);
+		if(p){
+			dbg (lvl_error, "Service Property %p, Name: %s\n", p, (p->name)?p->name:"NULL");
+			row = gui_internal_widget_table_row_new (this, gravity_left | flags_fill | orientation_horizontal);
+			wbm = gui_internal_button_new_with_callback (this,
+							 p->name,image_new_s (this,/* (service->icon) ? (service->icon) : */("gui_inactive")),
+							 gravity_left_center |
+							 orientation_horizontal | flags_fill, gui_internal_service_property, p);
 
-		gui_internal_widget_append (tbl, row);
-		gui_internal_widget_append (row, wbm);	
-		properties = g_list_next(properties);
+			gui_internal_widget_append (tbl, row);
+			gui_internal_widget_append (row, wbm);	
+			properties = g_list_next(properties);
+		}
 	}
     
 	
