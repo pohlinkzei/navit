@@ -120,19 +120,19 @@ gui_internal_service_edit_property(struct gui_priv *this, struct service_propert
 	nrows = nitems / wl->cols + (nitems % wl->cols > 0);
 	wl->h = this->icon_l *nrows;
 	if(p->root){
-		wb = gui_internal_button_new_with_callback(this, "back", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_devicelist, p->root);
+		wb = gui_internal_button_new_with_callback(this, " back ", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_devicelist, p->root);
 	}else{
-		wb = gui_internal_button_new_with_callback(this, "back", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_root, NULL);
+		wb = gui_internal_button_new_with_callback(this, " back ", NULL, gravity_left_center | orientation_horizontal, gui_internal_service_root, NULL);
 	}
 	gui_internal_widget_append(wl, wb);
 	if(p->ro == 0){
-		wb = gui_internal_button_new_with_callback(this, "-", NULL, gravity_left_center | orientation_horizontal, decrease_value, p);
+		wb = gui_internal_button_new_with_callback(this, " - ", NULL, gravity_left_center | orientation_horizontal, decrease_value, p);
 		gui_internal_widget_append(wl, wb);
 	}
 	wb = gui_internal_label_new(this, g_strdup_printf("%i", p->value));
 	gui_internal_widget_append(wl, wb);
 	if(p->ro == 0){
-		wb = gui_internal_button_new_with_callback(this, "+", NULL, gravity_left_center | orientation_horizontal, increase_value, p);
+		wb = gui_internal_button_new_with_callback(this, " + ", NULL, gravity_left_center | orientation_horizontal, increase_value, p);
 		gui_internal_widget_append(wl, wb);
 	}
 	return wl;
@@ -213,7 +213,7 @@ gui_internal_service_devicelist (struct gui_priv *this, struct widget *wm, void 
 		
 		wb = gui_internal_menu (this, g_strdup_printf ("%s Devices",name));
 		properties = service_get_properties(service);
-		dbg (lvl_error, "Service %s, Properties: %p\n", data, properties);
+		dbg (lvl_error, "Service %p, Properties: %p\n", data, properties);
 	}else{
 		dbg (lvl_error, "Service not available\n");
 		wb = gui_internal_menu (this, g_strdup_printf ("Service not available"));

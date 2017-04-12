@@ -30,6 +30,8 @@ rx_v2v_t *rx_v2v = NULL;
 tx_v2v_t *tx_v2v = NULL;
 rx_mfa_t *rx_mfa = NULL;
 tx_mfa_t *tx_mfa = NULL;
+rx_stub_t *rx_stub = NULL;
+tx_stub_t *tx_stub = NULL;
 
 uint8_t deserialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 uint8_t serialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
@@ -72,7 +74,7 @@ uint8_t serialize_stub_txdata(void *tx_data, uint8_t size, volatile uint8_t buff
 	}
 	char str[2560] = {0,};
 	tx_stub_t* tx = (tx_stub_t*) tx_data;
-	dbg(lvl_debug,"\nserialize_stub_txdata:%i\n%s\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->calibration);
+	dbg(lvl_debug,"\nserialize_stub_txdata:%i\n%s\n%x\n%i\n",size, tx->radio_text, tx->navigation_next_turn, (int) tx->calibration);
 	uint8_t i;
 	for(i=0;i<32;i++){
 		buffer[i] = tx->radio_text[i];
@@ -100,7 +102,7 @@ uint8_t serialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t buff
 		return 0;
 	}
 	rx_stub_t* rx = (rx_stub_t*) rx_data;
-	dbg(lvl_debug,"\nserialize_stub_rxdata:%i\n%s\n%i\n%i\n%",size,rx->radio_text, rx->navigation_next_turn, rx->calibration);
+	dbg(lvl_debug,"\nserialize_stub_rxdata:%i\n%s\n%x\n%i\n",size,rx->radio_text, rx->navigation_next_turn, (int) rx->calibration);
 	char str[2560] = {0,};
 	uint8_t i;
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
@@ -151,12 +153,13 @@ uint8_t deserialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t bu
 		+ ((long) buffer[AUDIO_STR_LENGTH + 3] << 8) 
 		+ buffer[AUDIO_STR_LENGTH + 4];
 	//navigation active?
-	rx->calibration = buffer[AUDIO_STR_LENGTH + 5];
+	rx->calibration = 1234;//buffer[AUDIO_STR_LENGTH + 5];
 	
 	return 1;
 }
 
 GList* init_stub_properties(void *rx_data, void* tx_data, struct service_property *parent){
+	dbg(lvl_debug,"\nItitialisating Properties\n");
 	GList* list = NULL;
 	rx_stub_t* rx = (rx_stub_t*) rx_data;
 	rx_stub_t* tx = (rx_stub_t*) tx_data;
@@ -364,7 +367,7 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 	}
 	char str[2560] = {0,};
 	tx_mfa_t* tx = (tx_mfa_t*) tx_data;
-	dbg(lvl_debug,"\nserialize_mfa_txdata:%i\n%s\n%i\n%i\n%i\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->cal_water_temperature, tx->cal_voltage, tx->cal_oil_temperature, tx->cal_consumption);
+	dbg(lvl_debug,"\nserialize_mfa_txdata:%i\n%s\n%x\n%i\n%i\n%i\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->cal_water_temperature, tx->cal_voltage, tx->cal_oil_temperature, tx->cal_consumption);
 	uint8_t i;
 	for(i=0;i<32;i++){
 		buffer[i] = tx->radio_text[i];
@@ -394,7 +397,7 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 		return 0;
 	}
 	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
-	dbg(lvl_debug,"\nserialize_mfa_rxdata:%i\n%s\n%i\n%i\n%i\n%i\n",size,rx->radio_text, rx->navigation_next_turn, rx->cal_water_temperature, rx->cal_voltage, rx->cal_oil_temperature, rx->cal_consumption);
+	dbg(lvl_debug,"\nserialize_mfa_rxdata:%i\n%s\n%x\n%i\n%i\n%i\n%i\n",size,rx->radio_text, rx->navigation_next_turn, rx->cal_water_temperature, rx->cal_voltage, rx->cal_oil_temperature, rx->cal_consumption);
 	char str[2560] = {0,};
 	uint8_t i;
 	for(i=0;i<AUDIO_STR_LENGTH;i++){

@@ -51,14 +51,14 @@ extern "C" {
 
 typedef struct txdataSTUB{
 	uint32_t distance_to_next_turn;
-	uint8_t radio_text[AUDIO_STR_LENGTH];
+	char radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;
 	uint8_t calibration;
 }tx_stub_t;
 	
 typedef struct rxdataSTUB{
 	uint32_t distance_to_next_turn;
-	uint8_t radio_text[AUDIO_STR_LENGTH];
+	char radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;
 	uint8_t calibration;
 }rx_stub_t;
@@ -129,7 +129,7 @@ typedef struct rxdataWFS{
 
 typedef struct txdataMFA{
 	uint32_t distance_to_next_turn;
-	uint8_t radio_text[AUDIO_STR_LENGTH];
+	char radio_text[AUDIO_STR_LENGTH];
 	
 	uint8_t navigation_next_turn;
 	//navigation active?
@@ -162,8 +162,8 @@ typedef struct rxdataMFA{
 	uint16_t range;
 	uint16_t speed;
 	uint16_t average_speed;
-	uint16_t rpm;
-	uint8_t radio_text[AUDIO_STR_LENGTH];
+	int16_t rpm;
+	char radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;	//navigation active?
 	uint8_t cal_water_temperature;
 	uint8_t cal_voltage;

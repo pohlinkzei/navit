@@ -185,14 +185,14 @@ service_new(struct attr* parent, struct attr** attrs)
 	servicetype_new=plugin_get_category_service(attr->u.str);
 	dbg(lvl_info,"new=%p\n", servicetype_new);
 	if (!servicetype_new) {
-			dbg(lvl_error,"wrong type '%s'\n", attr->u.str);
-			return NULL;
+		dbg(lvl_error,"wrong type '%s'\n", attr->u.str);
+		return NULL;
 	}
 	
 	this_ = g_new0(struct service, 1);
 	this_->func=&service_func;
 	this_->name = g_strdup(attr->u.str);
-	dbg(lvl_info, "%s\n",  this_->name);
+	dbg(lvl_info, "%s:%s\n",  this_->name, attr_to_name(parent->type));
 	//this_->icon = NULL;
 	navit_object_ref((struct navit_object *)this_);
 	

@@ -77,6 +77,40 @@
 extern "C" {
 #endif 
 
+
+#define STRAIGHT 0
+#define LEFT1 1
+#define LEFT2 2
+#define LEFT3 3
+#define RIGHT1 4
+#define RIGHT2 5
+#define RIGHT3 6
+#define RBL1 7
+#define RBL2 8
+#define RBL3 9
+#define RBL4 10
+#define RBL5 11
+#define RBL6 12
+#define RBL7 13
+#define RBL8 14
+#define RBR1 15
+#define RBR2 16
+#define RBR3 17
+#define RBR4 18
+#define RBR5 19 
+#define RBR6 20
+#define RBR7 21
+#define RBR8 22
+#define TURNL 23
+#define TURNR 24
+#define MERGEL 25
+#define MERGER 26
+#define EXITL 27
+#define EXITR 28
+#define KEEPL 29
+#define KEEPR 30
+#define DEST 31
+
 #define AUDIO_STR_LENGTH 38
 struct navigation_itm;
 struct navigation;
@@ -101,7 +135,7 @@ struct service_priv{
     int last_next_turn;
     struct callback* task;
     struct callback* callback;
-    int timeout;
+    struct event_timeout* timeout;
     int stub;
     GList* connected_devices;
     struct i2c_nav_data* navigation_data;
@@ -132,7 +166,7 @@ int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *att
 GList* i2c_get_properties(struct service_priv *priv);
 struct service_property* i2c_set_property(struct service_priv *priv, struct service_property* sp);
 struct i2c_nav_data* get_navigation_data(struct service_priv *this);
-void get_audio_data(struct service_priv *this, uint8_t audio_str[AUDIO_STR_LENGTH]);
+void get_audio_data(struct service_priv *this, char audio_str[AUDIO_STR_LENGTH]);
 #ifdef __cplusplus
 }
 #endif
