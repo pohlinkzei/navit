@@ -47,6 +47,20 @@ struct service {
 	char* name;
 };
 
+enum var_type{
+	integer8u,
+	integer8,
+	integer16u,
+	integer16,
+	integer32u,
+	integer32,
+	integer64u,
+	integer64,
+	string,
+	boolean,
+	structure,
+};
+
 struct service_property{
 	char *name;
 	struct service *root;
@@ -54,6 +68,7 @@ struct service_property{
 	int ro;
 	int num_children;
 	GList* children;
+	enum var_type type;
 	void* value;
 };
 

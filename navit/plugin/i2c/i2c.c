@@ -430,7 +430,8 @@ void process_i2c_data(struct service_priv* this, struct connected_devices* cd){
 	}else if(this->stub){
 		struct i2c_nav_data* navigation_data = get_navigation_data(this);
 		get_audio_data(this, tx_stub->radio_text);
-		dbg(lvl_debug, "radio text: %s\n", tx_stub->radio_text);
+		dbg(lvl_error, "\nradio text: %s\ncalibration: %i\nnav_next: %i\ndistance_to_nxt: %i\n", tx_stub->radio_text, tx_stub->calibration, tx_stub->navigation_next_turn, tx_stub->distance_to_next_turn);
+		/*i2c_set_property();*/
 		if(navigation_data){
 			tx_stub->distance_to_next_turn = navigation_data->distance_to_next_turn;
 			tx_stub->navigation_next_turn = navigation_data->next_turn + (navigation_data->nav_status << 4);
@@ -532,8 +533,22 @@ struct service_property* i2c_set_property(struct service_priv *priv, struct serv
 	//*/
 	return NULL;
 }
-
-
+/*
+struct service_property* get_device_property (GList* cd_list, char* name){
+	struct service_property* dev_prop;
+	struct connected_devices* cd;
+	cd = (struct connected_devices*) cd_list->data;
+	while(cd_list->next){
+		cd = (struct connected_devices*) cd_list->data;
+		dev_prop = (struct service_property*) cd->properties->data;
+		if(strcmp(dev_prop->name, name)){
+			return dev_prop;
+		}
+		cd_list = cd_list->next;
+	}
+	
+};
+*/
 
 void
 i2c_get_plugin(struct service_priv* p){
@@ -580,7 +595,7 @@ plugin_init(void)
 
 
 
-
+// todo fix....
 GList* init_properties(struct service_priv *this){
 	GList *prop = NULL;
 
@@ -598,10 +613,12 @@ GList* init_properties(struct service_priv *this){
 				sp->ro = 0;
 				sp->num_children = cd->num_properties;
 				dbg(lvl_info, "parent = %p, ro = %i, num_children = %i\n", sp->parent, sp->ro, sp->num_children);
-				uint8_t cnt = cd->num_properties;
-				while(cnt--){
+				//uint8_t cnt = cd->num_properties;
+				//while(cnt--){
+					
 					sp->children = cd->init_properties(cd->rx_data, cd->tx_data, sp);
-				}
+					cd->properties = sp->children;
+				//}
 				prop = g_list_append(prop, sp);
 				if(this->connected_devices->next)
 					this->connected_devices = this->connected_devices->next;

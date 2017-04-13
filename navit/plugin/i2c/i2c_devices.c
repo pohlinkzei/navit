@@ -133,7 +133,8 @@ uint8_t deserialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t bu
 	}
 	rx_stub_t* rx = (rx_stub_t*) rx_data;
 	uint8_t i;
-	char str[2560] = {0,};
+	//			 01234567890123456789012345678901234567
+	char* str = "RadioText RadioText RadioText RadioText ";/*
 	dbg(lvl_debug,"\ndeserialize_stub_rxdata:%i\n", size);
 	sprintf(str,"stub:");
 	for(i=0;i<size; i++){
@@ -142,18 +143,19 @@ uint8_t deserialize_stub_rxdata(void *rx_data, uint8_t size, volatile uint8_t bu
 		strcat(str, buf);
 	}
 	dbg(lvl_debug,"%s\n", str);
-	
+	//*/
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
-		rx->radio_text[i] = buffer[i];
+		rx->radio_text[i] = str[i];
 	}
 	
-	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH];
-	rx->distance_to_next_turn = ((long) buffer[AUDIO_STR_LENGTH + 1] << 24) 
+	
+	rx->navigation_next_turn = 255; //buffer[AUDIO_STR_LENGTH];
+	rx->distance_to_next_turn = 123456789;/*((long) buffer[AUDIO_STR_LENGTH + 1] << 24) 
 		+ ((long) buffer[AUDIO_STR_LENGTH + 2] << 16) 
 		+ ((long) buffer[AUDIO_STR_LENGTH + 3] << 8) 
-		+ buffer[AUDIO_STR_LENGTH + 4];
+		+ buffer[AUDIO_STR_LENGTH + 4];*/
 	//navigation active?
-	rx->calibration = 1234;//buffer[AUDIO_STR_LENGTH + 5];
+	rx->calibration = 123;//buffer[AUDIO_STR_LENGTH + 5];
 	
 	return 1;
 }
@@ -165,23 +167,25 @@ GList* init_stub_properties(void *rx_data, void* tx_data, struct service_propert
 	rx_stub_t* tx = (rx_stub_t*) tx_data;
 	struct service_property *p = g_new0(struct service_property,1);
 	
-	if(rx->calibration == tx->calibration){
+	//if(rx->calibration == tx->calibration){
 		p->name = g_strdup("Calibration");
 		p->ro = 0;
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
-		p->value = (void*) &rx->calibration;
+		p->type = integer8u;
+		p->value = (uint8_t*) &tx->calibration;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
-	}
+	//}
 	
 	p->name = g_strdup("Navigation Next Turn");
 	p->ro = 1;
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
-	p->value = (void*) &rx->navigation_next_turn;
+	p->type = integer8u;
+	p->value = (uint8_t*) &tx->navigation_next_turn;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
 	
@@ -190,7 +194,8 @@ GList* init_stub_properties(void *rx_data, void* tx_data, struct service_propert
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
-	p->value = (void*) &rx->distance_to_next_turn;
+	p->type = integer32u;
+	p->value = (int*) &tx->distance_to_next_turn;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
 	
@@ -199,10 +204,12 @@ GList* init_stub_properties(void *rx_data, void* tx_data, struct service_propert
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
-	p->value = (void*) g_strdup(rx->radio_text);
+	p->type = string;
+	p->value = (char*) tx->radio_text;
 	list = g_list_append(list, p);
-	p=g_new0(struct service_property,1);
 	
+	parent->num_children = g_list_length(list);
+	parent->children = list;
 	return list;
 }
 
@@ -281,6 +288,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer16u;
 		p->value = (void*) &rx->pwm_freq;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -292,6 +300,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_voltage;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -302,6 +311,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_temperature;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -312,6 +322,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->water_value;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -322,6 +333,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->time_value;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -332,6 +344,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16u;
 	p->value = (void*) &rx->vbat;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -341,6 +354,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16;
 	p->value = (void*) &rx->water_temp;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -350,6 +364,7 @@ GList* init_pwm_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16;
 	p->value = (void*) &rx->fet_temp;
 	list = g_list_append(list, p);
 	
@@ -498,6 +513,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_water_temperature;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -508,6 +524,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_voltage;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -518,6 +535,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_oil_temperature;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -528,6 +546,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_consumption;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -538,6 +557,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16u;
 	p->value = (void*) &rx->voltage;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -547,6 +567,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16;
 	p->value = (void*) &rx->water_temperature;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -555,6 +576,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->ro = 1;
 	p->num_children = 0;
 	p->parent = parent;
+	p->type = integer16;
 	p->children = NULL;
 	p->value = (void*) &rx->ambient_temperature;
 	list = g_list_append(list, p);
@@ -565,6 +587,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16;
 	p->value = (void*) &rx->oil_temperature;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -574,6 +597,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer8u;
 	p->value = (void*) &rx->ambient_temperature;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -583,6 +607,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = string;
 	p->value = (void*) g_strdup(rx->radio_text);
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -592,6 +617,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer8u;
 	p->value = (void*) &rx->consumption;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -601,6 +627,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer8u;
 	p->value = (void*) &rx->average_consumption;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -610,6 +637,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer8u;
 	p->value = (void*) &rx->speed;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -619,6 +647,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer8u;
 	p->value = (void*) &rx->average_speed;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -628,6 +657,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer8u;
 	p->value = (void*) &rx->speed;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -637,6 +667,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16u;
 	p->value = (void*) &rx->rpm;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -646,6 +677,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer32;
 	p->value = (void*) &rx->range;
 	list = g_list_append(list, p);
 
@@ -721,6 +753,7 @@ GList* init_lsg_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = boolean;
 		p->value = (void*) &rx->AL;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -732,6 +765,7 @@ GList* init_lsg_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = boolean;
 		p->value = (void*) &rx->TFL;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -742,6 +776,7 @@ GList* init_lsg_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = boolean;
 		p->value = (void*) &rx->ZV;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -752,6 +787,7 @@ GList* init_lsg_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = boolean;
 		p->value = (void*) &rx->LED;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -762,6 +798,7 @@ GList* init_lsg_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->time_in;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -772,6 +809,7 @@ GList* init_lsg_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->time_out;
 		list = g_list_append(list, p);
 	}
@@ -989,6 +1027,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer16u;
 		p->value = (void*) &rx->pwm_freq;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -1000,6 +1039,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_voltage;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -1010,6 +1050,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->cal_temperature;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -1020,6 +1061,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->water_value;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -1030,6 +1072,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 		p->num_children = 0;
 		p->parent = parent;
 		p->children = NULL;
+	p->type = integer8u;
 		p->value = (void*) &rx->time_value;
 		list = g_list_append(list, p);
 		p=g_new0(struct service_property,1);
@@ -1040,6 +1083,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16u;
 	p->value = (void*) &rx->vbat;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -1049,6 +1093,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16;
 	p->value = (void*) &rx->water_temp;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
@@ -1058,6 +1103,7 @@ GList* init_v2v_properties(void *rx_data, void* tx_data, struct service_property
 	p->num_children = 0;
 	p->parent = parent;
 	p->children = NULL;
+	p->type = integer16;
 	p->value = (void*) &rx->fet_temp;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);

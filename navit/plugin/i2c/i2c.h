@@ -150,6 +150,7 @@ struct connected_devices{
 	uint8_t rx_size;
 	uint8_t tx_size;
 	uint8_t num_properties;
+	GList* properties;
 	uint8_t (*serialize_tx)(void *tx_data, uint8_t size, volatile uint8_t buffer[size]);
 	uint8_t (*serialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]);
 	uint8_t (*deserialize_rx)(void *rx_data, uint8_t size, volatile uint8_t buffer[size]); 
