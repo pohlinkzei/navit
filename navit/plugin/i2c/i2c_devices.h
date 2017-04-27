@@ -140,18 +140,6 @@ typedef struct txdataMFA{
 	uint8_t cal_speed;
 	// other values from pwm module?
 }tx_mfa_t;
-/*
-typedef struct txdataMFA{
-	uint8_t radio_text[AUDIO_STR_LENGTH];
-	uint8_t navigation_next_turn;
-	uint32_t distance_to_next_turn;
-	//navigation active?
-	uint8_t cal_water_temperature;
-	uint8_t cal_voltage;
-	uint8_t cal_oil_temperature;
-	uint8_t cal_consumption;	
-	// other values from pwm module?
-}tx_mfa_t;*/
 	
 typedef struct rxdataMFA{
 	
@@ -174,31 +162,8 @@ typedef struct rxdataMFA{
 	int8_t water_temperature;
 	int8_t ambient_temperature;
 	int8_t oil_temperature;
+	uint8_t dummy;
 }rx_mfa_t;
-/*
-typedef struct rxdataMFA{
-	uint8_t radio_text[AUDIO_STR_LENGTH];
-	uint8_t navigation_next_turn;
-	uint32_t distance_to_next_turn;
-	//navigation active?
-	uint8_t cal_water_temperature;
-	uint8_t cal_voltage;
-	uint8_t cal_oil_temperature;
-	uint8_t cal_consumption;
-	// read only
-	uint16_t voltage;
-	int8_t water_temperature;
-	int8_t ambient_temperature;
-	int8_t oil_temperature;
-	uint16_t consumption;
-	uint16_t average_consumption;
-	uint16_t range;
-	uint16_t speed;
-	uint16_t average_speed;
-	uint16_t rpm;
-}rx_mfa_t;
-*/
-
 
 extern rx_lsg_t *rx_lsg;
 extern tx_lsg_t *tx_lsg;

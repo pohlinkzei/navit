@@ -384,19 +384,23 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 	tx_mfa_t* tx = (tx_mfa_t*) tx_data;
 	dbg(lvl_debug,"\nserialize_mfa_txdata:%i\n%s\n%x\n%i\n%i\n%i\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->cal_water_temperature, tx->cal_voltage, tx->cal_oil_temperature, tx->cal_consumption);
 	uint8_t i;
-	for(i=0;i<32;i++){
-		buffer[i] = tx->radio_text[i];
+	
+	buffer[0] = (uint8_t) ((tx->distance_to_next_turn & 0xFF000000) >> 24);
+	buffer[1] = (uint8_t) ((tx->distance_to_next_turn & 0x00FF0000) >> 16);
+	buffer[2] = (uint8_t) ((tx->distance_to_next_turn & 0x0000FF00) >> 8);
+	buffer[3] = (uint8_t) ((tx->distance_to_next_turn & 0x000000FF));
+	
+	for(i=0;i<AUDIO_STR_LENGTH;i++){
+		buffer[i+4] = tx->radio_text[i];
 	}
-	buffer[32] = tx->navigation_next_turn;//or status
-	buffer[33] = (uint8_t) ((tx->distance_to_next_turn & 0xFF000000) >> 24);
-	buffer[34] = (uint8_t) ((tx->distance_to_next_turn & 0x00FF0000) >> 16);
-	buffer[35] = (uint8_t) ((tx->distance_to_next_turn & 0x0000FF00) >> 8);
-	buffer[36] = (uint8_t) ((tx->distance_to_next_turn & 0x000000FF));
+	buffer[AUDIO_STR_LENGTH + 4] = tx->navigation_next_turn;//or status
+	
 	//navigation active?
-	buffer[37] = tx->cal_water_temperature;
-	buffer[38] = tx->cal_voltage;
-	buffer[39] = tx->cal_oil_temperature;
-	buffer[40] = tx->cal_consumption;	
+	buffer[AUDIO_STR_LENGTH + 5] = tx->cal_water_temperature;
+	buffer[AUDIO_STR_LENGTH + 6] = tx->cal_voltage;
+	buffer[AUDIO_STR_LENGTH + 7] = tx->cal_oil_temperature;
+	buffer[AUDIO_STR_LENGTH + 8] = tx->cal_consumption;	
+	buffer[AUDIO_STR_LENGTH + 9] = tx->cal_speed;	
 	sprintf(str,"mfa:");
 	for(i=0;i<size; i++){
 		char buf[6] = {0,};
@@ -415,37 +419,43 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 	dbg(lvl_debug,"\nserialize_mfa_rxdata:%i\n%s\n%x\n%i\n%i\n%i\n%i\n",size,rx->radio_text, rx->navigation_next_turn, rx->cal_water_temperature, rx->cal_voltage, rx->cal_oil_temperature, rx->cal_consumption);
 	char str[2560] = {0,};
 	uint8_t i;
+	
+	buffer[0] = (uint8_t) ((rx->distance_to_next_turn & 0xFF000000) >> 24);
+	buffer[1] = (uint8_t) ((rx->distance_to_next_turn & 0x00FF0000) >> 16);
+	buffer[2] = (uint8_t) ((rx->distance_to_next_turn & 0x0000FF00) >> 8);
+	buffer[3] = (uint8_t) ((rx->distance_to_next_turn & 0x000000FF));	
+	buffer[4] = (uint8_t) ((rx->voltage & 0xFF00) >> 8);
+	buffer[5] = (uint8_t) ((rx->voltage & 0x00FF));	
+	buffer[6] = (uint8_t) ((rx->consumption & 0xFF00) >> 8);
+	buffer[7] = (uint8_t) ((rx->consumption & 0x00FF));	
+	
+	buffer[8] = (uint8_t) ((rx->average_consumption & 0xFF00) >> 8);
+	buffer[9] = (uint8_t) ((rx->average_consumption & 0x00FF));
+	buffer[10] = (uint8_t) ((rx->range & 0xFF00) >> 8);
+	buffer[11] = (uint8_t) ((rx->range & 0x00FF));
+	buffer[12] = (uint8_t) ((rx->speed & 0xFF00) >> 8);
+	buffer[13] = (uint8_t) ((rx->speed & 0x00FF));
+	buffer[14] = (uint8_t) ((rx->average_speed & 0xFF00) >> 8);
+	buffer[15] = (uint8_t) ((rx->average_speed & 0x00FF));
+	buffer[16] = (uint8_t) ((rx->rpm & 0xFF00) >> 8);
+	buffer[17] = (uint8_t) ((rx->rpm & 0x00FF));	
+	
+	
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
-		buffer[i] = rx->radio_text[i];
+		buffer[i + 18] = rx->radio_text[i];
 	}
-	buffer[AUDIO_STR_LENGTH] = rx->navigation_next_turn;//or status
-	buffer[AUDIO_STR_LENGTH + 1] = (uint8_t) ((rx->distance_to_next_turn & 0xFF000000) >> 24);
-	buffer[AUDIO_STR_LENGTH + 2] = (uint8_t) ((rx->distance_to_next_turn & 0x00FF0000) >> 16);
-	buffer[AUDIO_STR_LENGTH + 3] = (uint8_t) ((rx->distance_to_next_turn & 0x0000FF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 4] = (uint8_t) ((rx->distance_to_next_turn & 0x000000FF));
-	//navigation active?
-	buffer[AUDIO_STR_LENGTH + 5] = rx->cal_water_temperature;
-	buffer[AUDIO_STR_LENGTH + 6] = rx->cal_voltage;
-	buffer[AUDIO_STR_LENGTH + 7] = rx->cal_oil_temperature;
-	buffer[AUDIO_STR_LENGTH + 8] = rx->cal_consumption;
-	// read only
-	buffer[AUDIO_STR_LENGTH + 9] = (uint8_t) ((rx->voltage & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 10] = (uint8_t) ((rx->voltage & 0x00FF));
-	buffer[AUDIO_STR_LENGTH + 11] = rx->water_temperature;
-	buffer[AUDIO_STR_LENGTH + 12] = rx->ambient_temperature;
-	buffer[AUDIO_STR_LENGTH + 13] = rx->oil_temperature;
-	buffer[AUDIO_STR_LENGTH + 14] = (uint8_t) ((rx->consumption & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 15] = (uint8_t) ((rx->consumption & 0x00FF));
-	buffer[AUDIO_STR_LENGTH + 16] = (uint8_t) ((rx->average_consumption & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 17] = (uint8_t) ((rx->average_consumption & 0x00FF));
-	buffer[AUDIO_STR_LENGTH + 18] = (uint8_t) ((rx->range & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 19] = (uint8_t) ((rx->range & 0x00FF));
-	buffer[AUDIO_STR_LENGTH + 20] = (uint8_t) ((rx->speed & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 21] = (uint8_t) ((rx->speed & 0x00FF));
-	buffer[AUDIO_STR_LENGTH + 22] = (uint8_t) ((rx->average_speed & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 23] = (uint8_t) ((rx->average_speed & 0x00FF));
-	buffer[AUDIO_STR_LENGTH + 24] = (uint8_t) ((rx->rpm & 0xFF00) >> 8);
-	buffer[AUDIO_STR_LENGTH + 25] = (uint8_t) ((rx->rpm & 0x00FF));
+	buffer[AUDIO_STR_LENGTH + 18] = rx->navigation_next_turn;
+
+	buffer[AUDIO_STR_LENGTH + 19] = rx->cal_water_temperature;
+	buffer[AUDIO_STR_LENGTH + 20] = rx->cal_voltage;
+	buffer[AUDIO_STR_LENGTH + 21] = rx->cal_oil_temperature;
+	buffer[AUDIO_STR_LENGTH + 22] = rx->cal_consumption;
+	buffer[AUDIO_STR_LENGTH + 23] = rx->cal_speed;
+
+
+	buffer[AUDIO_STR_LENGTH + 24] = rx->water_temperature;
+	buffer[AUDIO_STR_LENGTH + 25] = rx->ambient_temperature;
+	buffer[AUDIO_STR_LENGTH + 26] = rx->oil_temperature;
 	
 	sprintf(str,"mfa:");
 	for(i=0;i<size; i++){
@@ -473,31 +483,35 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	}
 	dbg(lvl_debug,"%s\n", str);
 	
-	for(i=0;i<AUDIO_STR_LENGTH;i++){
-		rx->radio_text[i] = buffer[i];
-	}
+	rx->distance_to_next_turn = ((long) buffer[0] << 24) 
+		+ ((long) buffer[1] << 16) 
+		+ ((long) buffer[2] << 8) 
+		+ buffer[3];
 	
-	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH];
-	rx->distance_to_next_turn = ((long) buffer[AUDIO_STR_LENGTH + 1] << 24) 
-		+ ((long) buffer[AUDIO_STR_LENGTH + 2] << 16) 
-		+ ((long) buffer[AUDIO_STR_LENGTH + 3] << 8) 
-		+ buffer[AUDIO_STR_LENGTH + 4];
-	//navigation active?
-	rx->cal_water_temperature = buffer[AUDIO_STR_LENGTH + 5];
-	rx->cal_voltage = buffer[AUDIO_STR_LENGTH + 6];
-	rx->cal_oil_temperature = buffer[AUDIO_STR_LENGTH + 7];
-	rx->cal_consumption = buffer[AUDIO_STR_LENGTH + 8];
-	// read only
-	rx->voltage = ((uint16_t) buffer[AUDIO_STR_LENGTH + 9] << 8) + buffer[AUDIO_STR_LENGTH + 10];
-	rx->water_temperature = buffer[AUDIO_STR_LENGTH + 11];
-	rx->ambient_temperature = buffer[AUDIO_STR_LENGTH + 12];
-	rx->oil_temperature = buffer[AUDIO_STR_LENGTH + 13];
-	rx->consumption = ((uint16_t) buffer[AUDIO_STR_LENGTH + 14] << 8) + buffer[AUDIO_STR_LENGTH + 15];
-	rx->average_consumption = ((uint16_t) buffer[AUDIO_STR_LENGTH + 16] << 8) + buffer[AUDIO_STR_LENGTH + 17];
-	rx->range = ((uint16_t) buffer[AUDIO_STR_LENGTH + 18] << 8) + buffer[AUDIO_STR_LENGTH + 19];
-	rx->speed = ((uint16_t) buffer[AUDIO_STR_LENGTH + 20] << 8) + buffer[AUDIO_STR_LENGTH + 21];
-	rx->average_speed = ((uint16_t) buffer[22] << 8) + buffer[AUDIO_STR_LENGTH + 23];
-	rx->rpm = (uint16_t) (buffer[AUDIO_STR_LENGTH + 24] << 8) + buffer[AUDIO_STR_LENGTH + 25];
+	rx->voltage = ((uint16_t) buffer[4] << 8) + buffer[5];
+	
+	rx->consumption = ((uint16_t) buffer[6] << 8) + buffer[7];
+	rx->average_consumption = ((uint16_t) buffer[8] << 8) + buffer[9];
+	rx->range = ((uint16_t) buffer[10] << 8) + buffer[11];
+	rx->speed = ((uint16_t) buffer[12] << 8) + buffer[13];
+	rx->average_speed = ((uint16_t) buffer[14] << 8) + buffer[15];
+	rx->rpm = (uint16_t) (buffer[16] << 8) + buffer[17];
+	
+	for(i=0;i<AUDIO_STR_LENGTH;i++){
+		rx->radio_text[i] = buffer[18+i];
+	}
+	rx->cal_water_temperature = buffer[AUDIO_STR_LENGTH + 18];
+	rx->cal_voltage = buffer[AUDIO_STR_LENGTH + 19];
+	rx->cal_oil_temperature = buffer[AUDIO_STR_LENGTH + 20];
+	rx->cal_consumption = buffer[AUDIO_STR_LENGTH + 21];
+	rx->cal_speed = buffer[AUDIO_STR_LENGTH + 21];
+	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH+22];
+	rx->water_temperature = buffer[AUDIO_STR_LENGTH + 23];
+	rx->ambient_temperature = buffer[AUDIO_STR_LENGTH + 24];
+	rx->oil_temperature = buffer[AUDIO_STR_LENGTH + 25];
+
+	
+	
 	return 1;
 }
 GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property *parent){
