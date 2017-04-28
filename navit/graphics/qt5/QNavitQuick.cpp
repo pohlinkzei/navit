@@ -35,23 +35,22 @@
 #if defined(WINDOWS) || defined(WIN32) || defined (HAVE_API_WIN32_CE)
 #include <windows.h>
 #endif
+#include <QPainter>
+#include "QNavitQuick.h"
 #include "graphics_qt5.h"
-#include "QNavitWidget.h"
-#include "QNavitWidget.moc"
 
-QNavitWidget :: QNavitWidget(struct graphics_priv *my_graphics_priv,
-                             QWidget * parent,
-                             Qt::WindowFlags flags): QWidget(parent, flags)
+QNavitQuick::QNavitQuick(QQuickItem *parent)
+    : QQuickPaintedItem(parent)
 {
-    graphics_priv = my_graphics_priv;
+    setAcceptedMouseButtons(Qt::AllButtons);
+    graphics_priv = NULL;
 }
 
-bool QNavitWidget::event(QEvent *event)
+void QNavitQuick::setGraphicContext(GraphicsPriv *gp)
 {
-    if (event->type() == QEvent::Gesture)
-        dbg(lvl_debug, "Gesture event caught");
-        //return gestureEvent(static_cast<QGestureEvent*>(event));
-    return QWidget::event(event);
+    dbg(lvl_debug,"enter\n");
+    graphics_priv = gp->gp;
+    QObject::connect(gp, SIGNAL(update()), this, SLOT(update()));
 }
 
 static void paintOverlays(QPainter * painter, struct graphics_priv * gp, QPaintEvent * event)
@@ -72,72 +71,30 @@ static void paintOverlays(QPainter * painter, struct graphics_priv * gp, QPaintE
                                  paintOverlays(painter, value, event);
                          }
                 }
-        }
-        
+        } 
 }
 
-void QNavitWidget :: paintEvent(QPaintEvent * event)
+void QNavitQuick::paint(QPainter *painter)
 {
-        dbg(lvl_debug,"enter (%d, %d, %d, %d)\n",event->rect().x(), event->rect().y(), event->rect().width(), event->rect().height());
-        QPainter painter(this);
-        /* color background if any */
-        if (graphics_priv->background_graphics_gc_priv != NULL)
-        {
-                painter.setPen(*graphics_priv->background_graphics_gc_priv->pen);
-                painter.fillRect(event->rect(),*graphics_priv->background_graphics_gc_priv->brush);
-        }
-        painter.drawPixmap(0,0,*graphics_priv->pixmap,
-                           event->rect().x(), event->rect().y(),
-                           event->rect().width(), event->rect().height());
-        paintOverlays(&painter, graphics_priv, event);
+    QPaintEvent event = QPaintEvent(QRect(boundingRect().x(), boundingRect().y(), boundingRect().width(), boundingRect().height()));
+
+    dbg(lvl_debug,"enter (%f, %f, %f, %f)\n",boundingRect().x(), boundingRect().y(), boundingRect().width(), boundingRect().height());
+
+    /* color background if any */
+    if (graphics_priv->background_graphics_gc_priv != NULL)
+    {
+            painter->setPen(*graphics_priv->background_graphics_gc_priv->pen);
+            painter->fillRect(boundingRect(),*graphics_priv->background_graphics_gc_priv->brush);
+    }
+    /* draw base */
+    painter->drawPixmap(0,0,*graphics_priv->pixmap,
+                       boundingRect().x(), boundingRect().y(),
+                       boundingRect().width(), boundingRect().height());
+    paintOverlays(painter, graphics_priv, &event);
 }
 
-void QNavitWidget::resizeEvent(QResizeEvent * event)
-{
-        QPainter * painter = NULL;
-        if(graphics_priv->pixmap != NULL)
-        {
-                delete graphics_priv->pixmap;
-                graphics_priv->pixmap = NULL;
-        }
-    
-        graphics_priv->pixmap=new QPixmap(size());
-        painter = new QPainter(graphics_priv->pixmap);
-        if(painter != NULL)
-        {
-                QBrush brush;
-                painter->fillRect(0, 0, width(), height(), brush);
-                delete painter;
-        }
-        dbg(lvl_debug,"size %dx%d\n", width(), height());
-        dbg(lvl_debug,"pixmap %p %dx%d\n", graphics_priv->pixmap, graphics_priv->pixmap->width(), graphics_priv->pixmap->height());
-        /* if the root window got resized, tell navit about it */
-        if(graphics_priv->root)
-                resize_callback(graphics_priv,width(),height());
-}
 
-void QNavitWidget::mouseEvent(int pressed, QMouseEvent *event)
-{
-	struct point p;
-//        dbg(lvl_debug,"enter\n");
-	p.x=event->x();
-	p.y=event->y();
-	switch (event->button()) {
-	case Qt::LeftButton:
-		callback_list_call_attr_3(graphics_priv->callbacks, attr_button, GINT_TO_POINTER(pressed), GINT_TO_POINTER(1), GINT_TO_POINTER(&p));
-		break;
-	case Qt::MidButton:
-		callback_list_call_attr_3(graphics_priv->callbacks, attr_button, GINT_TO_POINTER(pressed), GINT_TO_POINTER(2), GINT_TO_POINTER(&p));
-		break;
-	case Qt::RightButton:
-		callback_list_call_attr_3(graphics_priv->callbacks, attr_button, GINT_TO_POINTER(pressed), GINT_TO_POINTER(3), GINT_TO_POINTER(&p));
-		break;
-	default:
-		break;
-	}
-}
-
-void QNavitWidget::keyPressEvent(QKeyEvent *event)
+void QNavitQuick::keyPressEvent(QKeyEvent *event)
 {
    dbg(lvl_debug,"enter\n");
 	char key[2];
@@ -203,31 +160,87 @@ void QNavitWidget::keyPressEvent(QKeyEvent *event)
 		dbg(lvl_debug,"keyval 0x%x\n", keycode);
 }
 
-
-void QNavitWidget::mousePressEvent(QMouseEvent *event)
+void QNavitQuick::keyReleaseEvent(QKeyEvent *event)
 {
-//        dbg(lvl_debug,"enter\n");
-	mouseEvent(1, event);
+    dbg(lvl_debug,"enter\n");
 }
 
-void QNavitWidget::mouseReleaseEvent(QMouseEvent *event)
+void QNavitQuick::geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
 {
-//        dbg(lvl_debug,"enter\n");
-	mouseEvent(0, event);
+    dbg(lvl_debug,"enter\n");
+    QQuickPaintedItem::geometryChanged(newGeometry,oldGeometry);
+    QPainter * painter = NULL;
+    if(graphics_priv == NULL)
+    {
+        dbg(lvl_debug,"Context not set, aborting\n");
+	return;
+    }
+    if(graphics_priv->pixmap != NULL)
+    {
+            delete graphics_priv->pixmap;
+            graphics_priv->pixmap = NULL;
+    }
+    
+    graphics_priv->pixmap=new QPixmap(width(), height());
+    painter = new QPainter(graphics_priv->pixmap);
+    if(painter != NULL)
+    {
+        QBrush brush;
+        painter->fillRect(0, 0, width(), height(), brush);
+        delete painter;
+    }
+    dbg(lvl_debug,"size %fx%f\n", width(), height());
+    dbg(lvl_debug,"pixmap %p %dx%d\n", graphics_priv->pixmap, graphics_priv->pixmap->width(), graphics_priv->pixmap->height());
+    /* if the root window got resized, tell navit about it */
+    if(graphics_priv->root)
+        resize_callback(graphics_priv,width(),height());
 }
 
-void QNavitWidget::mouseMoveEvent(QMouseEvent *event)
+void QNavitQuick::mouseEvent(int pressed, QMouseEvent *event)
 {
-	struct point p;
-//        dbg(lvl_debug,"enter\n");
-	p.x=event->x();
-	p.y=event->y();
-	callback_list_call_attr_1(graphics_priv->callbacks, attr_motion, (void *)&p);
+    struct point p;
+    dbg(lvl_debug,"enter\n");
+    p.x=event->x();
+    p.y=event->y();
+    switch (event->button()) {
+    case Qt::LeftButton:
+        callback_list_call_attr_3(graphics_priv->callbacks, attr_button, GINT_TO_POINTER(pressed), GINT_TO_POINTER(1), GINT_TO_POINTER(&p));
+        break;
+    case Qt::MidButton:
+        callback_list_call_attr_3(graphics_priv->callbacks, attr_button, GINT_TO_POINTER(pressed), GINT_TO_POINTER(2), GINT_TO_POINTER(&p));
+        break;
+    case Qt::RightButton:
+        callback_list_call_attr_3(graphics_priv->callbacks, attr_button, GINT_TO_POINTER(pressed), GINT_TO_POINTER(3), GINT_TO_POINTER(&p));
+        break;
+    default:
+        break;
+    }
 }
 
-void QNavitWidget::wheelEvent(QWheelEvent *event)
+void QNavitQuick::mousePressEvent(QMouseEvent *event)
 {
-	struct point p;
+    dbg(lvl_debug,"enter\n");
+    mouseEvent(1, event);
+}
+
+void QNavitQuick::mouseReleaseEvent(QMouseEvent *event)
+{
+    dbg(lvl_debug,"enter\n");
+    mouseEvent(0, event);
+}
+
+void QNavitQuick::mouseMoveEvent(QMouseEvent *event)
+{
+    dbg(lvl_debug,"enter\n");
+    struct point p;
+    p.x=event->x();
+    p.y=event->y();
+    callback_list_call_attr_1(graphics_priv->callbacks, attr_motion, (void *)&p);
+}
+
+void QNavitQuick::wheelEvent(QWheelEvent *event)
+{
+   struct point p;
 	int button;
 	dbg(lvl_debug,"enter\n");
 	p.x=event->x();	// xy-coordinates of the mouse pointer
@@ -247,3 +260,4 @@ void QNavitWidget::wheelEvent(QWheelEvent *event)
 	
 	event->accept();
 }
+
