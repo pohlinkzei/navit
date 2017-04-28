@@ -36,9 +36,12 @@
 #include "gui_internal_search.h"
 #include "gui_internal_poi.h"
 #include "gui_internal_command.h"
+#include "gui_internal_service.h"
 #ifdef USE_AUDIO_FRAMEWORK
 #include "gui_internal_media.h"
 #endif
+
+
 
 extern char *version;
 
@@ -1285,7 +1288,7 @@ static struct command_table commands[] = {
 #ifdef USE_AUDIO_FRAMEWORK
     {"media_show_playlist", command_cast (gui_internal_media_show_playlist)},
 #endif
-
+	{"service_show",command_cast(gui_internal_service_root)},
 };
 
 void

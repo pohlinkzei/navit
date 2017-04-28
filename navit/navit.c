@@ -53,6 +53,7 @@
 #include "navigation.h"
 #include "speech.h"
 #include "track.h"
+#include "service.h"
 #include "vehicle.h"
 #include "layout.h"
 #include "log.h"
@@ -77,6 +78,9 @@
 #ifdef HAVE_API_WIN32_CE
 #include "libc.h"
 #endif
+#ifdef USE_I2C
+//#include "plugin/i2c/i2c.h"
+#endif
 
 /* define string for bookmark handling */
 #define TEXTFILE_COMMENT_NAVI_STOPPED "# navigation stopped\n"
@@ -94,6 +98,12 @@
  * - a navigation object
  * @{
  */
+
+
+struct navit_service {
+	struct service *service;
+	struct attr callback;
+};
 
 //! The vehicle used for navigation.
 struct navit_vehicle {
@@ -139,8 +149,10 @@ struct navit {
 	int recentdest_count;
 	int osd_configuration;
 	GList *audio_plugins;
+	GList *services;
 	GList *vehicles;
 	GList *windows_items;
+	struct navit_service *service;
 	struct navit_vehicle *vehicle;
 	struct navit_audio_plugin *audio;
 	struct callback_list *attr_cbl;
@@ -202,6 +214,7 @@ struct attr_iter {
 
 static void navit_vehicle_update_position(struct navit *this_, struct navit_vehicle *nv);
 static void navit_vehicle_draw(struct navit *this_, struct navit_vehicle *nv, struct point *pnt);
+static int navit_add_service(struct navit *this_, struct service *serv);
 static int navit_add_vehicle(struct navit *this_, struct vehicle *v);
 static int navit_add_audio(struct navit *this_, struct audio *a);
 static int navit_set_attr_do(struct navit *this_, struct attr *attr, int init);
@@ -649,7 +662,22 @@ navit_scale(struct navit *this_, long scale, struct point *p, int draw)
 	if (draw)
 		navit_draw(this_);
 }
-
+/*
+static void
+navit_service_get(struct navit* this){
+	GList *l;
+	l=this_->services;
+	while (l) {
+		struct navit_service * nav_serv = l->data;
+		struct service *s = nav_serv->service;
+		if(s->meth.plugin && s->meth.plugin != 0xFFFFFFFF){
+			int (*f) (struct service_priv *this) = s->meth.plugin;
+			f(a->priv)
+		}
+		l=g_list_next(l);
+	}
+}
+*/
 /**
  * @brief Automatically adjusts zoom level
  *
@@ -3291,6 +3319,9 @@ navit_add_attr(struct navit *this_, struct attr *attr)
 	case attr_trackingo:
 		this_->tracking=attr->u.tracking;
 		break;
+	case attr_service:
+		ret=navit_add_service(this_, attr->u.service);
+		break;
 	case attr_vehicle:
 		ret=navit_add_vehicle(this_, attr->u.vehicle);
 		break;
@@ -3727,8 +3758,43 @@ navit_add_vehicle(struct navit *this_, struct vehicle *v)
 	return 1;
 }
 
+/**
+ * @brief Registers a new service.
+ *
+ * @param this_ The navit instance
+ * @param v The service to register
+ * @return True for success
+ */
+static int
+navit_add_service(struct navit *this_, struct service *serv)
+{
+	struct navit_service *navit_service=g_new0(struct navit_service, 1);
+	
+	navit_service->service = serv;
+	
+	this_->services=g_list_append(this_->services, navit_service);
+	
+	//*	
+	navit_service->callback.type=attr_callback;
+	//navit_service->callback.u.callback=callback_new_attr_3(callback_cast(navit_service_update_status), attr_position_fix_type, this_, navit_service, attr_position_fix_type);
+	service_add_attr(navit_service->service, &navit_service->callback);
+	service_set_attr(navit_service->service, &this_->self);
+	dbg(lvl_error, "Navit Add Service %p (%s) to List %p\n", serv,serv->name, this_->services); 
+	return 1;
+}
 
+GList*
+navit_get_services(struct navit* this_){
+	return this_->services;
+}
 
+struct service*
+navit_get_service(struct navit *navit, int i){
+	struct navit_service *nav_serv = g_list_nth_data(navit->services, i);
+	if(nav_serv)
+		return nav_serv->service;
+	return NULL;
+}
 
 struct gui *
 navit_get_gui(struct navit *this_)

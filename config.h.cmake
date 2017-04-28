@@ -95,3 +95,6 @@
 #cmakedefine HAVE_IMLIB2 1
 
 #cmakedefine USE_AUDIO_FRAMEWORK 1
+
+#cmakedefine USE_I2C 1
+

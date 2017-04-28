@@ -28,7 +28,7 @@ if [[ "${CIRCLE_PROJECT_USERNAME}" == "navit-gps" && "${CIRCLE_BRANCH}" == "trun
 
 else
 	mkdir ~/linux-bin && cd ~/linux-bin
-	cmake ~/${CIRCLE_PROJECT_REPONAME}/ ${cmake_opts} || exit -1
+	cmake ~/${CIRCLE_PROJECT_REPONAME}/ ${cmake_opts} -DSAMPLE_MAP=n -DUSE_I2C=1 || exit -1
 	make  || exit -1
 fi
 

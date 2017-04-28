@@ -196,6 +196,7 @@ struct attr {
 		struct audio *audio;
 		struct cursor *cursor;
 		struct displaylist *displaylist;
+		struct service* service;
 		struct transformation *transformation;
 		struct vehicleprofile *vehicleprofile;
 		struct roadprofile *roadprofile;

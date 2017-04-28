@@ -25,19 +25,6 @@ extern "C" {
 
 struct plugin;
 
-/*<<<<<<< HEAD
-enum plugin_type {
-	plugin_type_graphics,
-	plugin_type_gui,
-	plugin_type_map,
-	plugin_type_osd,
-	plugin_type_speech,
-	plugin_type_vehicle,
-	plugin_type_event,
-	plugin_type_font,
-	plugin_type_audio,
-	plugin_type_last,
-//=======*/
 /**
  * @brief All existing plugin categories.
  *
@@ -46,6 +33,8 @@ enum plugin_type {
  * offered by a plugin.
  */
 enum plugin_category {
+	/** Category for plugins which provide a service (custom IO, comms, ...) */
+	plugin_category_service,
 	/** Category for plugins which implement a graphics backend. */
 	plugin_category_graphics,
 	/** Category for plugins which implement a GUI frontend. */
@@ -66,7 +55,6 @@ enum plugin_category {
 	plugin_category_audio,
 	/** Dummy for last entry. */
 	plugin_category_last,
-//>>>>>>> navit/trunk
 };
 #endif
 
