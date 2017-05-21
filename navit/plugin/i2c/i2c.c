@@ -24,8 +24,6 @@
 #include <audio.h>
 #endif
 
-
-#define AUDIO_STR_LENGTH 38
 #define CRC_POLYNOME 0xAB
 char x[] = {0x66, 0x55,0x44, 0x33, 0x22, 0x11};
 char result[6] = {0,};
@@ -179,20 +177,30 @@ int select_slave(int device, uint8_t addr){
 }
 
 
-void get_audio_data(struct service_priv* this, char audio_str[AUDIO_STR_LENGTH]){
+int get_audio_data(struct service_priv* this, char audio_str[AUDIO_STR_LENGTH]){
 	int i = 0;
 	gchar str[256] = {0,};
-#ifdef USE_AUDIO_FRAMEWORK 
-	strcpy(str, audio_get_current_track(this->nav));
+#ifdef USE_AUDIO_FRAMEWORK
+	strcpy(str, " ");
+	strcat(str, audio_get_current_track(this->nav));
 	strcat(str, " - ");
 	strcat(str, audio_get_current_playlist(this->nav));
+	strcat(str, " ");
 #else
-	sprintf(str, "No Audio Plugin found! ");
+	sprintf(str, " No Audio Plugin found! ");
 #endif
-for (i=0; i< AUDIO_STR_LENGTH; i++){
-		audio_str[i] = str[i];
+	if(!strcmp(str, audio_str)){
+		dbg(lvl_info, "audio_str did not change\n");
+		return 1;
 	}
-	audio_str[i] = ' ';
+	while(str[i]){
+		audio_str[i] = str[i];
+		i++;
+	}
+	for (; i< AUDIO_STR_LENGTH; i++){
+		audio_str[i] = 0x00;
+	}
+	return 0;
 }
 
 
@@ -317,6 +325,7 @@ get_navigation_data(struct service_priv* this){
 			if (navigation_get_attr(nav, attr_nav_status, &attr, NULL)){
 				status = attr.u.num;
 				nav_data->nav_status = status;
+				dbg(lvl_info, "Status: 0x%02X\n", nav_data->nav_status);
 			}
 		}
 		if (map)
@@ -328,6 +337,7 @@ get_navigation_data(struct service_priv* this){
 			name = item_to_name(item->type);
 		}
 		nav_data->next_turn = get_next_turn_by_name(name);
+		dbg(lvl_info, "NextTurn: 0x%02X\n", nav_data->next_turn);
 	}
 	return nav_data;
 }
@@ -398,18 +408,26 @@ uint8_t tx_task(int device, struct connected_devices *cd){
 	return 0;
 }
 
-void process_i2c_data(struct service_priv* this, struct connected_devices* cd){
+int process_i2c_data(struct service_priv* this, struct connected_devices* cd){
 	uint8_t port = cd->addr;
+	int result = 0; // processing result - only resend data if we return 0
 	dbg(lvl_info,"Process data on addr: 0x%02X\n",port);
 	if(port == calculateID("MFA")){
-		
+		int audio_result, nav_result = 0;
 		struct i2c_nav_data* navigation_data = get_navigation_data(this);
-		get_audio_data(this, tx_mfa->radio_text);
+		audio_result = get_audio_data(this, tx_mfa->radio_text);
 		if(navigation_data){
-			tx_mfa->distance_to_next_turn = navigation_data->distance_to_next_turn;
-			tx_mfa->navigation_next_turn = navigation_data->next_turn + (navigation_data->nav_status << 4);
+			if(tx_mfa->distance_to_next_turn == navigation_data->distance_to_next_turn 
+					&& tx_mfa->navigation_next_turn == (navigation_data->next_turn + (navigation_data->nav_status << 5))){
+				nav_result = 1;
+			}else{
+				nav_result = 0;
+				tx_mfa->distance_to_next_turn = navigation_data->distance_to_next_turn;
+				tx_mfa->navigation_next_turn = navigation_data->next_turn + (navigation_data->nav_status << 5);
+			}
 			dbg(lvl_info,"Send NAV data: %i, %i\n", tx_mfa->distance_to_next_turn,tx_mfa->navigation_next_turn);
 		}
+		result = audio_result && nav_result;
 	}else if(port == calculateID("LSG")){
 		tx_lsg->AL = 1;
 		tx_lsg->TFL = 0;
@@ -440,6 +458,7 @@ void process_i2c_data(struct service_priv* this, struct connected_devices* cd){
 	}else{
 		dbg(lvl_error, "Invalid i2c data\n");
 	}
+	return result;
 }
 
 
@@ -477,8 +496,8 @@ i2c_task(struct service_priv *this){
 				if(0==select_slave(this->device, cd->addr)){
 					dbg(lvl_info, "\nstart PROCESS DATA: 0x%02X, %s\n\n", cd->addr, cd->name);
 					rx_task(this->device, cd);
-					tx_task(this->device, cd);
-					process_i2c_data(this, cd);
+					if(!process_i2c_data(this, cd))
+						tx_task(this->device, cd);
 					dbg(lvl_info, "\nend PROCESS DATA: 0x%02X, %s\n\n", cd->addr, cd->name);
 				}
 				if(this->connected_devices->next)

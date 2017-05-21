@@ -47,7 +47,7 @@
 extern "C" {
 #endif 
 
-#define AUDIO_STR_LENGTH 38
+#define AUDIO_STR_LENGTH 178
 
 typedef struct txdataSTUB{
 	uint32_t distance_to_next_turn;

@@ -111,7 +111,7 @@ extern "C" {
 #define KEEPR 30
 #define DEST 31
 
-#define AUDIO_STR_LENGTH 38
+#define AUDIO_STR_LENGTH 178
 struct navigation_itm;
 struct navigation;
 
@@ -167,7 +167,7 @@ int i2c_get_attr(struct service_priv *priv,enum attr_type type, struct attr *att
 GList* i2c_get_properties(struct service_priv *priv);
 struct service_property* i2c_set_property(struct service_priv *priv, struct service_property* sp);
 struct i2c_nav_data* get_navigation_data(struct service_priv *this);
-void get_audio_data(struct service_priv *this, char audio_str[AUDIO_STR_LENGTH]);
+int get_audio_data(struct service_priv *this, char audio_str[AUDIO_STR_LENGTH]);
 #ifdef __cplusplus
 }
 #endif
