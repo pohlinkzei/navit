@@ -1170,6 +1170,139 @@ uint8_t deserialize_v2v_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 }
 //*/
 
+void init_i2c_device(struct connected_devices* cd, int port){
+	cd->addr = port;
+	if(port == calculateID("MFA")){			
+		rx_mfa = (rx_mfa_t*) malloc(sizeof(rx_mfa_t)); 
+		tx_mfa = (tx_mfa_t*) malloc(sizeof(tx_mfa_t));
+		cd->name = g_strdup("MFA");
+		cd->icon = "gui_active";
+		cd->rx_data = rx_mfa;
+		cd->tx_data = tx_mfa;
+		cd->num_properties = 17;
+		cd->serialize_rx = serialize_mfa_rxdata;
+		cd->serialize_tx = serialize_mfa_txdata;
+		cd->deserialize_rx = deserialize_mfa_rxdata;
+		cd->init_properties = init_mfa_properties;
+		cd->rx_size = sizeof(rx_mfa_t);
+		cd->tx_size = sizeof(tx_mfa_t);
+	}else if(port == calculateID("LSG")){
+		rx_lsg = (rx_lsg_t*) malloc(sizeof(rx_lsg_t)); 
+		tx_lsg = (tx_lsg_t*) malloc(sizeof(tx_lsg_t)); 
+		cd->name = g_strdup("LSG");
+		cd->icon = "gui_active";
+		cd->rx_data = rx_lsg;
+		cd->tx_data = tx_lsg;
+		cd->num_properties = 6;
+		cd->serialize_rx = serialize_lsg_rxdata;
+		cd->serialize_tx = serialize_lsg_txdata;
+		cd->deserialize_rx = deserialize_lsg_rxdata;
+		cd->init_properties = init_lsg_properties;
+		cd->rx_size = sizeof(rx_lsg_t);
+		cd->tx_size = sizeof(tx_lsg_t);
+	}else if(port == calculateID("WFS")){
+		rx_wfs = (rx_wfs_t*) malloc(sizeof(rx_wfs_t)); 
+		tx_wfs = (tx_wfs_t*) malloc(sizeof(tx_wfs_t)); 
+		cd->name = g_strdup("WFS");
+		cd->icon = "gui_active";
+		cd->rx_data = rx_wfs;
+		cd->tx_data = tx_wfs;
+		cd->num_properties = 0;
+		cd->serialize_rx = serialize_wfs_rxdata;
+		cd->serialize_tx = serialize_wfs_txdata;
+		cd->deserialize_rx = deserialize_wfs_rxdata;
+		cd->init_properties = init_wfs_properties;
+		cd->rx_size = sizeof(rx_wfs_t);
+		cd->tx_size = sizeof(tx_wfs_t);
+	}else if(port == calculateID("PWM")){
+		rx_pwm = (rx_pwm_t*) malloc(sizeof(rx_pwm_t)); 
+		tx_pwm = (tx_pwm_t*) malloc(sizeof(tx_pwm_t)); 
+		tx_pwm->pwm_freq = 10000;
+		tx_pwm->cal_temperature = 5;
+		tx_pwm->cal_voltage = 5;
+		tx_pwm->time_value = 10;
+		tx_pwm->water_value = 35;
+		cd->name = g_strdup("PWM");
+		cd->icon = "gui_active";
+		cd->rx_data = rx_pwm;
+		cd->tx_data = tx_pwm;
+		cd->num_properties = 8;
+		cd->serialize_rx = serialize_pwm_rxdata;
+		cd->serialize_tx = serialize_pwm_txdata;
+		cd->deserialize_rx = deserialize_pwm_rxdata;
+		cd->init_properties = init_pwm_properties;
+		cd->rx_size = sizeof(rx_pwm_t);
+		cd->tx_size = sizeof(tx_pwm_t);
+	}else if(port == calculateID("V2V")){
+		rx_v2v = (rx_v2v_t*) malloc(sizeof(rx_v2v_t)); 
+		tx_v2v = (tx_v2v_t*) malloc(sizeof(tx_v2v_t)); 
+		cd->name = g_strdup("V2V");
+		cd->icon = "gui_active";
+		cd->rx_data = rx_v2v;
+		cd->tx_data = tx_v2v;
+		cd->num_properties = 8;
+		cd->serialize_rx = serialize_v2v_rxdata;
+		cd->serialize_tx = serialize_v2v_txdata;
+		cd->deserialize_rx = deserialize_v2v_rxdata;
+		cd->init_properties = init_v2v_properties;
+		cd->rx_size = sizeof(rx_v2v_t);
+		cd->tx_size = sizeof(tx_v2v_t);
+	}else{
+		cd->name = g_strdup("I2C");
+		cd->icon = "gui_inactive";
+		cd->init_properties = NULL;
+		return 0;
+	}
+}
+
+GList* find_device_by_addr(GList* cd_list, int addr){
+	if(cd_list && addr){
+		do{
+			struct connected_devices* cd = cd_list->data;
+			if(cd->addr == addr){
+				return cd_list;
+			}
+			cd_list = cd_list->next;
+		}while(cd_list->next);
+	}
+	return NULL;
+};
+
+
+
+/*
+ * Checks if the known i2c devices are present on the bus and if there are some new devices
+ */
+void check_i2c_devices(struct service_priv *this){
+	int port, res;
+	if(this->device){
+		for(port = 0; port < 127; port++){
+			if(ioctl(this->device, I2C_SLAVE, port) < 0){
+				// i2c device not present - remove from list?
+				GList* nonpresent_device = find_device_by_addr(this->connected_devices, port);
+				if(nonpresent_device && !this->stub)
+					// remove disconnected device from list if we are not in stub mode 
+					this->connected_devices = g_list_delete_link(g_list_first(this->connected_devices), nonpresent_device);
+				dbg(lvl_debug,"Error: No I2C_SLAVE found!\n");
+			}else{
+				//i2c device present -> check if we do already know it
+				GList* present_device = find_device_by_addr(this->connected_devices, port);
+				if(!present_device){
+					// we do not know that guy... 
+					struct connected_devices* cd = present_device->data;
+					res = i2c_smbus_read_byte(this->device);
+					if (res >= 0){
+						struct connected_devices *cd = g_new0(struct connected_devices, 1);
+						init_i2c_device(cd, port);
+						dbg(lvl_info, "Appending a Device %p\n", cd);
+						this->connected_devices = g_list_append(this->connected_devices, cd);
+					}
+				}
+			}
+		}
+	}
+}
+
 
 int init_i2c_devices(struct service_priv *this){
 	int port, res;
@@ -1183,89 +1316,8 @@ int init_i2c_devices(struct service_priv *this){
 				if (res >= 0){
 					dbg(lvl_info,"I2C device found at 0x%02x, val = 0x%02x\n",port, res);
 					struct connected_devices *cd = g_new0(struct connected_devices, 1);
-					cd->addr = port;
-					if(port == calculateID("MFA")){
-						
-						rx_mfa = (rx_mfa_t*) malloc(sizeof(rx_mfa_t)); 
-						tx_mfa = (tx_mfa_t*) malloc(sizeof(tx_mfa_t));
-						cd->name = g_strdup("MFA");
-						cd->icon = "gui_active";
-						cd->rx_data = rx_mfa;
-						cd->tx_data = tx_mfa;
-						cd->num_properties = 17;
-						cd->serialize_rx = serialize_mfa_rxdata;
-						cd->serialize_tx = serialize_mfa_txdata;
-						cd->deserialize_rx = deserialize_mfa_rxdata;
-						cd->init_properties = init_mfa_properties;
-						cd->rx_size = sizeof(rx_mfa_t);
-						cd->tx_size = sizeof(tx_mfa_t);
-					}else if(port == calculateID("LSG")){
-						rx_lsg = (rx_lsg_t*) malloc(sizeof(rx_lsg_t)); 
-						tx_lsg = (tx_lsg_t*) malloc(sizeof(tx_lsg_t)); 
-						cd->name = g_strdup("LSG");
-						cd->icon = "gui_active";
-						cd->rx_data = rx_lsg;
-						cd->tx_data = tx_lsg;
-						cd->num_properties = 6;
-						cd->serialize_rx = serialize_lsg_rxdata;
-						cd->serialize_tx = serialize_lsg_txdata;
-						cd->deserialize_rx = deserialize_lsg_rxdata;
-						cd->init_properties = init_lsg_properties;
-						cd->rx_size = sizeof(rx_lsg_t);
-						cd->tx_size = sizeof(tx_lsg_t);
-					}else if(port == calculateID("WFS")){
-						rx_wfs = (rx_wfs_t*) malloc(sizeof(rx_wfs_t)); 
-						tx_wfs = (tx_wfs_t*) malloc(sizeof(tx_wfs_t)); 
-						cd->name = g_strdup("WFS");
-						cd->icon = "gui_active";
-						cd->rx_data = rx_wfs;
-						cd->tx_data = tx_wfs;
-						cd->num_properties = 0;
-						cd->serialize_rx = serialize_wfs_rxdata;
-						cd->serialize_tx = serialize_wfs_txdata;
-						cd->deserialize_rx = deserialize_wfs_rxdata;
-						cd->init_properties = init_wfs_properties;
-						cd->rx_size = sizeof(rx_wfs_t);
-						cd->tx_size = sizeof(tx_wfs_t);
-					}else if(port == calculateID("PWM")){
-						rx_pwm = (rx_pwm_t*) malloc(sizeof(rx_pwm_t)); 
-						tx_pwm = (tx_pwm_t*) malloc(sizeof(tx_pwm_t)); 
-						tx_pwm->pwm_freq = 10000;
-						tx_pwm->cal_temperature = 5;
-						tx_pwm->cal_voltage = 5;
-						tx_pwm->time_value = 10;
-						tx_pwm->water_value = 35;
-						cd->name = g_strdup("PWM");
-						cd->icon = "gui_active";
-						cd->rx_data = rx_pwm;
-						cd->tx_data = tx_pwm;
-						cd->num_properties = 8;
-						cd->serialize_rx = serialize_pwm_rxdata;
-						cd->serialize_tx = serialize_pwm_txdata;
-						cd->deserialize_rx = deserialize_pwm_rxdata;
-						cd->init_properties = init_pwm_properties;
-						cd->rx_size = sizeof(rx_pwm_t);
-						cd->tx_size = sizeof(tx_pwm_t);
-					}else if(port == calculateID("V2V")){
-						rx_v2v = (rx_v2v_t*) malloc(sizeof(rx_v2v_t)); 
-						tx_v2v = (tx_v2v_t*) malloc(sizeof(tx_v2v_t)); 
-						cd->name = g_strdup("V2V");
-						cd->icon = "gui_active";
-						cd->rx_data = rx_v2v;
-						cd->tx_data = tx_v2v;
-						cd->num_properties = 8;
-						cd->serialize_rx = serialize_v2v_rxdata;
-						cd->serialize_tx = serialize_v2v_txdata;
-						cd->deserialize_rx = deserialize_v2v_rxdata;
-						cd->init_properties = init_v2v_properties;
-						cd->rx_size = sizeof(rx_v2v_t);
-						cd->tx_size = sizeof(tx_v2v_t);
-					}else{
-						cd->name = g_strdup("I2C");
-						cd->icon = "gui_inactive";
-						cd->init_properties = NULL;
-						return 0;
-					}
+					//cd->addr = port;
+					init_i2c_device(cd, port);
 					dbg(lvl_info, "Appending a Device %p\n", cd);
 					this->connected_devices = g_list_append(this->connected_devices, cd);
 				}
@@ -1287,5 +1339,5 @@ int init_i2c_devices(struct service_priv *this){
 		dbg(lvl_info, "Appending a Device %p\n", cd);
 		this->connected_devices = g_list_append(this->connected_devices, cd);
 	}
-	return 1;
+	return g_list_length(this->connected_devices);
 }

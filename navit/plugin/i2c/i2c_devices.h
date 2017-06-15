@@ -180,6 +180,7 @@ extern tx_stub_t *tx_stub;
 extern rx_stub_t *rx_stub;
 
 int init_i2c_devices(struct service_priv *this);
+void check_i2c_devices(struct service_priv *this);
 #ifdef __cplusplus
 }
 #endif

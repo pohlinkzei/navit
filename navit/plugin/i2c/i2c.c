@@ -489,6 +489,7 @@ i2c_task(struct service_priv *this){
 	this->connected_devices = g_list_first(this->connected_devices);
 	int num_devices = g_list_length(this->connected_devices);
 	dbg(lvl_info, "%i connected devices\n", num_devices);
+	check_i2c_devices(this);
 	if(this->device){
 		while(num_devices--){
 			if(this->connected_devices->data){
