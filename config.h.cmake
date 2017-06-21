@@ -94,7 +94,11 @@
 
 #cmakedefine HAVE_IMLIB2 1
 
+<<<<<<< HEAD
 #cmakedefine USE_AUDIO_FRAMEWORK 1
 
 #cmakedefine USE_I2C 1
 
+=======
+#cmakedefine HAS_IFADDRS 1
+>>>>>>> navit/trunk

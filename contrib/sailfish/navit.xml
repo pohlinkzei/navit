@@ -90,9 +90,13 @@ Navigation</text></img>
 				<img cond='fullscreen==1' src='gui_leave_fullscreen' onclick='fullscreen=0'><text>Window Mode</text></img>
 				<img cond='navit.pitch==0' src='gui_map' onclick='navit.pitch=pitch;redraw_map();back_to_map()'><text>3D</text></img>
 				<img cond='navit.pitch!=0' src='gui_map' onclick='navit.pitch=0;redraw_map();back_to_map()'><text>2D</text></img>
+				<img cond='navit.autozoom_active==0' src='gui_zoom_auto' onclick='navit.autozoom_active=1;redraw_map();back_to_map()'><text>Auto zoom</text></img>
+				<img cond='navit.autozoom_active==1' src='gui_zoom_manual' onclick='navit.autozoom_active=0;redraw_map();back_to_map()'><text>Manual zoom</text></img>
+  				<a href='#Settings Layers'><img src='gui_layers'><text>Layers</text></img></a>
 			</a>
 			<a name='Tools'><text>Tools</text>
 				<img src='gui_actions' onclick='locale()'><text>Show Locale</text></img>
+            <img src='gui_tools' onclick='network_info()'><text>Network info</text></img>
 			</a>
 			<a name='Route'><text>Route</text>
 				<img src='gui_actions' onclick='route_description()'><text>Description</text></img>
@@ -122,6 +126,17 @@ Waypoint</text></img>
 						else
 							img("centry",map.active?"gui_active":"gui_inactive", map.type+":"+map.data,
 								"","navit.mapset.map[@data==%{se}].active=%{d}*",map.data,!map.active,"redraw_map();refresh();");
+				</script>
+			</a>
+			<a name='Settings Layers' class='clist'><text>Layers</text>
+				<script>
+					foreach(layer;navit.layout.layer)
+						if (layer.name)
+							img("centry",layer.active?"gui_active":"gui_inactive",layer.name,
+							"","navit.layout.layer[@name==%{se}].active=%{d}*",layer.name,!layer.active,"redraw_map();refresh();");
+						else
+							img("centry",layer.active?"gui_active":"gui_inactive",
+								"","navit.layout.layer[@name==%{se}].active=%{d}*",layer.name,!layer.active,"redraw_map();refresh();");
 				</script>
 			</a>
 			<a name='Settings Vehicles' class='clist'><text>Vehicle</text>
@@ -369,7 +384,7 @@ Waypoint</text></img>
 			If you have a speech synthesizer like festival lite installed, you can get turn by turn directions out of navit. Please set the "cps"-value to how many characters your tts engine approximately speaks per second.
 			The default is text output to the shell -->
 		<!-- speech type="cmdline" data="echo 'Fix the speech tag in navit.xml to let navit say:' '%s'" cps="15"/ -->
-		<speech type="cmdline" data="say_de_DE.sh '%s'" cps="15"/>
+		<speech type="qt5_espeak" cps="15"/>
 		<!--
 		Instead of using a speech synthesizer, navit can also play pre-recorded samples for each word.
 		See http://wiki.navit-project.org/index.php/Configuration for details.
