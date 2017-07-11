@@ -1257,13 +1257,15 @@ void init_i2c_device(struct connected_devices* cd, int port){
 
 GList* find_device_by_addr(GList* cd_list, int addr){
 	if(cd_list && addr){
-		do{
+		while(cd_list){
 			struct connected_devices* cd = cd_list->data;
+			
 			if(cd->addr == addr){
 				return cd_list;
 			}
-			cd_list = cd_list->next;
-		}while(cd_list->next);
+			cd_list = g_list_next(cd_list);
+			
+		}
 	}
 	return NULL;
 };
