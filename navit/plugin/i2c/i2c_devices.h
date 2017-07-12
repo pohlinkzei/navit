@@ -47,7 +47,7 @@
 extern "C" {
 #endif 
 
-#define AUDIO_STR_LENGTH 120
+#define AUDIO_STR_LENGTH 115
 
 typedef struct txdataSTUB{
 	uint32_t distance_to_next_turn;
@@ -140,6 +140,7 @@ typedef struct txdataMFA{
 	uint8_t cal_consumption;	
 	uint8_t cal_speed;
 	*/
+	//uint8_t dummy;
 	// other values from pwm module?
 }tx_mfa_t;
 	
@@ -168,7 +169,7 @@ typedef struct rxdataMFA{
 	int8_t ambient_temperature;
 	int8_t oil_temperature;
 	//*/
-	uint8_t dummy;
+	//uint8_t dummy;
 }rx_mfa_t;
 
 extern rx_lsg_t *rx_lsg;

@@ -635,9 +635,10 @@ GList* init_properties(struct service_priv *this){
 				dbg(lvl_info, "parent = %p, ro = %i, num_children = %i\n", sp->parent, sp->ro, sp->num_children);
 				//uint8_t cnt = cd->num_properties;
 				//while(cnt--){
-					
+				if(cd->init_properties){
 					sp->children = cd->init_properties(cd->rx_data, cd->tx_data, sp);
 					cd->properties = sp->children;
+				}
 				//}
 				prop = g_list_append(prop, sp);
 				if(this->connected_devices->next)
