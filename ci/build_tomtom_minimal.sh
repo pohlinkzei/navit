@@ -93,15 +93,14 @@ cd /tmp
 wget -nv -c http://ftp.gnome.org/pub/gnome/sources/glib/2.25/glib-2.25.17.tar.gz
 tar xzf glib-2.25.17.tar.gz
 cd glib-2.25.17
-touch tomtom.cache
-chmod a-w tomtom.cache
-cat > tomtom.cache << EOF
+echo > tomtom.cache << EOF
 glib_cv_long_long_format=ll
 glib_cv_stack_grows=no
 glib_cv_uscore=no
 ac_cv_func_posix_getgrgid_r=yes
 ac_cv_func_posix_getpwuid_r=yes
 EOF
+chmod a-w tomtom.cache
 ./configure --prefix=$PREFIX --host=$ARCH --cache-file=tomtom.cache
 sed -i "s|cp xgen-gmc gmarshal.c |cp xgen-gmc gmarshal.c \&\& sed -i \"s\|g_value_get_schar\|g_value_get_char\|g\" gmarshal.c |g" gobject/Makefile
 make -j$JOBS
