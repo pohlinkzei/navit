@@ -118,7 +118,7 @@ void thread_exit (void *__retval){
 	return;
 }
 
-int thread_join (thread_t __th, void **__thread_return);
+int thread_join (thread_t __th, void **__thread_return){
 	return 0;
 }
 int thread_detach (thread_t __th){
