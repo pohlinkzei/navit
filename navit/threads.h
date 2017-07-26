@@ -65,3 +65,5 @@ extern int thread_mutex_getprioceiling (const thread_mutex_t *__mutex,
 extern int thread_mutex_setprioceiling (thread_mutex_t * __mutex,
 					 int __prioceiling,
 					 int * __old_ceiling);
+#endif
+
