@@ -68,9 +68,7 @@
 #include "vehicleprofile.h"
 #include "sunriset.h"
 #include "bookmarks.h"
-#ifdef CMAKE_USE_PTHREADS_INIT
-#include "pthread.h"
-#endif
+#include "pthreads.h"
 #ifdef HAVE_API_WIN32_BASE
 #include <windows.h>
 #include "util.h"
