@@ -46,7 +46,7 @@ extern void thread_exit (void *__retval);
 extern int thread_join (thread_t __th, void **__thread_return);
 extern int thread_detach (thread_t __th);
 extern thread_t thread_self (void);
-extern int pthread_equal (thread_t __thread1, thread_t __thread2);
+extern int thread_equal (thread_t __thread1, thread_t __thread2);
 extern int thread_once (thread_once_t *__once_control,
 			 void (*__init_routine) (void));
 extern int thread_setcancelstate (int __state, int *__oldstate);

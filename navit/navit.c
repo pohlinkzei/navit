@@ -68,7 +68,7 @@
 #include "vehicleprofile.h"
 #include "sunriset.h"
 #include "bookmarks.h"
-#include "pthreads.h"
+#include "threads.h"
 #ifdef HAVE_API_WIN32_BASE
 #include <windows.h>
 #include "util.h"
