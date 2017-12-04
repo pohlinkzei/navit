@@ -30,6 +30,8 @@ struct _GList;
 typedef struct _GList GList;
 #endif
 
+static thread_mutex_t *navit_mutex;
+
 /* prototypes */
 enum attr_type;
 struct attr;
