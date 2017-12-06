@@ -111,7 +111,7 @@ extern "C" {
 #define KEEPR 30
 #define DEST 31
 
-#define AUDIO_STR_LENGTH 178
+#define AUDIO_STR_LENGTH 120
 struct navigation_itm;
 struct navigation;
 

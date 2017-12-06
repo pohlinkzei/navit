@@ -47,7 +47,7 @@
 extern "C" {
 #endif 
 
-#define AUDIO_STR_LENGTH 178
+#define AUDIO_STR_LENGTH 120
 
 typedef struct txdataSTUB{
 	uint32_t distance_to_next_turn;
@@ -132,18 +132,21 @@ typedef struct txdataMFA{
 	char radio_text[AUDIO_STR_LENGTH];
 	
 	uint8_t navigation_next_turn;
+	/*
 	//navigation active?
 	uint8_t cal_water_temperature;
 	uint8_t cal_voltage;
 	uint8_t cal_oil_temperature;
 	uint8_t cal_consumption;	
 	uint8_t cal_speed;
+	*/
 	// other values from pwm module?
 }tx_mfa_t;
 	
 typedef struct rxdataMFA{
 	
 	uint32_t distance_to_next_turn;
+	/*
 	uint16_t voltage;
 	uint16_t consumption;
 	uint16_t average_consumption;
@@ -151,8 +154,10 @@ typedef struct rxdataMFA{
 	uint16_t speed;
 	uint16_t average_speed;
 	int16_t rpm;
+	//*/ 
 	char radio_text[AUDIO_STR_LENGTH];
 	uint8_t navigation_next_turn;	//navigation active?
+	/*
 	uint8_t cal_water_temperature;
 	uint8_t cal_voltage;
 	uint8_t cal_oil_temperature;
@@ -162,6 +167,7 @@ typedef struct rxdataMFA{
 	int8_t water_temperature;
 	int8_t ambient_temperature;
 	int8_t oil_temperature;
+	//*/
 	uint8_t dummy;
 }rx_mfa_t;
 

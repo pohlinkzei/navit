@@ -19,6 +19,7 @@
 #include <i2c_devices.h>
 
 #define CRC_POLYNOME 0xAB
+#define DEBUG 0
 
 rx_lsg_t *rx_lsg = NULL;
 tx_lsg_t *tx_lsg = NULL;
@@ -380,9 +381,11 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 		dbg(lvl_debug,"size: %i, struct: %i\n",size,sizeof(tx_mfa_t));
 		return 0;
 	}
-	char str[2560] = {0,};
 	tx_mfa_t* tx = (tx_mfa_t*) tx_data;
+	#if DEBUG
+	char str[2560] = {0,};
 	dbg(lvl_debug,"\nserialize_mfa_txdata:%i\n%s\n%x\n%i\n%i\n%i\n%i\n",size,tx->radio_text, tx->navigation_next_turn, tx->cal_water_temperature, tx->cal_voltage, tx->cal_oil_temperature, tx->cal_consumption);
+	#endif
 	uint8_t i;
 	
 	buffer[0] = (uint8_t) ((tx->distance_to_next_turn & 0xFF000000) >> 24);
@@ -394,7 +397,7 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 		buffer[i+4] = tx->radio_text[i];
 	}
 	buffer[AUDIO_STR_LENGTH + 4] = tx->navigation_next_turn;//or status
-	
+	/*
 	//navigation active?
 	buffer[AUDIO_STR_LENGTH + 5] = tx->cal_water_temperature;
 	buffer[AUDIO_STR_LENGTH + 6] = tx->cal_voltage;
@@ -408,6 +411,7 @@ uint8_t serialize_mfa_txdata(void *tx_data, uint8_t size, volatile uint8_t buffe
 		strcat(str, buf);
 	}
 	dbg(lvl_debug,"%s\n", str);
+	*/
 	return 1;
 }
 
@@ -416,14 +420,17 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 		return 0;
 	}
 	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
+	#if DEBUG
 	dbg(lvl_debug,"\nserialize_mfa_rxdata:%i\n%s\n%x\n%i\n%i\n%i\n%i\n",size,rx->radio_text, rx->navigation_next_turn, rx->cal_water_temperature, rx->cal_voltage, rx->cal_oil_temperature, rx->cal_consumption);
 	char str[2560] = {0,};
+	#endif
 	uint8_t i;
 	
 	buffer[0] = (uint8_t) ((rx->distance_to_next_turn & 0xFF000000) >> 24);
 	buffer[1] = (uint8_t) ((rx->distance_to_next_turn & 0x00FF0000) >> 16);
 	buffer[2] = (uint8_t) ((rx->distance_to_next_turn & 0x0000FF00) >> 8);
 	buffer[3] = (uint8_t) ((rx->distance_to_next_turn & 0x000000FF));	
+	/*
 	buffer[4] = (uint8_t) ((rx->voltage & 0xFF00) >> 8);
 	buffer[5] = (uint8_t) ((rx->voltage & 0x00FF));	
 	buffer[6] = (uint8_t) ((rx->consumption & 0xFF00) >> 8);
@@ -439,11 +446,14 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 	buffer[15] = (uint8_t) ((rx->average_speed & 0x00FF));
 	buffer[16] = (uint8_t) ((rx->rpm & 0xFF00) >> 8);
 	buffer[17] = (uint8_t) ((rx->rpm & 0x00FF));	
-	
+	*/
 	
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
-		buffer[i + 18] = rx->radio_text[i];
+		//buffer[i + 18] = rx->radio_text[i];
+		buffer[i + 4] = rx->radio_text[i];
 	}
+	buffer[AUDIO_STR_LENGTH + 4] = rx->navigation_next_turn;
+	/*
 	buffer[AUDIO_STR_LENGTH + 18] = rx->navigation_next_turn;
 
 	buffer[AUDIO_STR_LENGTH + 19] = rx->cal_water_temperature;
@@ -456,7 +466,8 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 	buffer[AUDIO_STR_LENGTH + 24] = rx->water_temperature;
 	buffer[AUDIO_STR_LENGTH + 25] = rx->ambient_temperature;
 	buffer[AUDIO_STR_LENGTH + 26] = rx->oil_temperature;
-	
+	*/
+	#if DEBUG
 	sprintf(str,"mfa:");
 	for(i=0;i<size; i++){
 		char buf[6] = {0,};
@@ -464,6 +475,7 @@ uint8_t serialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buffe
 		strcat(str, buf);
 	}
 	dbg(lvl_debug,"%s\n", str);
+	#endif
 	return 1;
 }
 
@@ -473,6 +485,7 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	}
 	rx_mfa_t* rx = (rx_mfa_t*) rx_data;
 	uint8_t i;
+	#if DEBUG
 	char str[2560] = {0,};
 	dbg(lvl_debug,"\ndeserialize_mfa_rxdata:%i\n", size);
 	sprintf(str,"mfa:");
@@ -482,12 +495,12 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 		strcat(str, buf);
 	}
 	dbg(lvl_debug,"%s\n", str);
-	
+	#endif
 	rx->distance_to_next_turn = ((long) buffer[0] << 24) 
 		+ ((long) buffer[1] << 16) 
 		+ ((long) buffer[2] << 8) 
 		+ buffer[3];
-	
+/*	
 	rx->voltage = ((uint16_t) buffer[4] << 8) + buffer[5];
 	
 	rx->consumption = ((uint16_t) buffer[6] << 8) + buffer[7];
@@ -496,20 +509,25 @@ uint8_t deserialize_mfa_rxdata(void *rx_data, uint8_t size, volatile uint8_t buf
 	rx->speed = ((uint16_t) buffer[12] << 8) + buffer[13];
 	rx->average_speed = ((uint16_t) buffer[14] << 8) + buffer[15];
 	rx->rpm = (uint16_t) (buffer[16] << 8) + buffer[17];
-	
+	*/
 	for(i=0;i<AUDIO_STR_LENGTH;i++){
-		rx->radio_text[i] = buffer[18+i];
+		//rx->radio_text[i] = buffer[18+i];
+		rx->radio_text[i] = buffer[4+i];
 	}
+	/*
 	rx->cal_water_temperature = buffer[AUDIO_STR_LENGTH + 18];
 	rx->cal_voltage = buffer[AUDIO_STR_LENGTH + 19];
 	rx->cal_oil_temperature = buffer[AUDIO_STR_LENGTH + 20];
 	rx->cal_consumption = buffer[AUDIO_STR_LENGTH + 21];
 	rx->cal_speed = buffer[AUDIO_STR_LENGTH + 21];
-	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH+22];
+	*/
+	rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH+4];
+	//rx->navigation_next_turn = buffer[AUDIO_STR_LENGTH+22];
+	/*
 	rx->water_temperature = buffer[AUDIO_STR_LENGTH + 23];
 	rx->ambient_temperature = buffer[AUDIO_STR_LENGTH + 24];
 	rx->oil_temperature = buffer[AUDIO_STR_LENGTH + 25];
-
+	*/
 	
 	
 	return 1;
@@ -520,7 +538,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	rx_mfa_t* tx = (rx_mfa_t*) tx_data;
 	struct service_property *p = g_new0(struct service_property,1);
 	
-	
+/*	
 	if(rx->cal_water_temperature == tx->cal_water_temperature){
 		p->name = g_strdup("Water Temperature Calibration");
 		p->ro = 0;
@@ -615,7 +633,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->value = (void*) &rx->ambient_temperature;
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
-	
+*/	
 	p->name = g_strdup("Radio Text");
 	p->ro = 1;
 	p->num_children = 0;
@@ -625,7 +643,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->value = (void*) g_strdup(rx->radio_text);
 	list = g_list_append(list, p);
 	p=g_new0(struct service_property,1);
-	
+/*	
 	p->name = g_strdup("Consumption");
 	p->ro = 1;
 	p->num_children = 0;
@@ -694,7 +712,7 @@ GList* init_mfa_properties(void *rx_data, void* tx_data, struct service_property
 	p->type = integer32;
 	p->value = (void*) &rx->range;
 	list = g_list_append(list, p);
-
+*/
 	return list;
 }
 
