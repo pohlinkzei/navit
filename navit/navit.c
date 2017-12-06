@@ -71,6 +71,8 @@
 #include "audio.h"
 #include "bookmarks.h"
 #include "audio.h"
+#include "threads.h"
+
 #ifdef HAVE_API_WIN32_BASE
 #include <windows.h>
 #include "util.h"

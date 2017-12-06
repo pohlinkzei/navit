@@ -20,6 +20,8 @@
 #ifndef NAVIT_NAVIT_H
 #define NAVIT_NAVIT_H
 
+#include "threads.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,6 +31,8 @@ extern struct gui *main_loop_gui;
 struct _GList;
 typedef struct _GList GList;
 #endif
+
+static thread_mutex_t *navit_mutex;
 
 /* prototypes */
 enum attr_type;
