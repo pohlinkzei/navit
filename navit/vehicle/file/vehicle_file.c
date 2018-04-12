@@ -289,7 +289,11 @@ vehicle_file_open(struct vehicle_priv *priv)
 		p=strchr(p,':');
 		if (p) {
 			p++;
-			write(priv->fd, p, strlen(p));
+			int write_result;
+			write_result = write(priv->fd, p, strlen(p));
+			if (write_result == -1){
+				dbg(lvl_warning, "write failed.");
+			}
 		}
 		priv->file_type = file_type_socket;
 #endif //HAVE_SOCKET
@@ -838,7 +842,7 @@ vehicle_file_destroy(struct vehicle_priv *priv)
 * @param type Attribute type called
 * @param attr Structure to return the attribute value
 *
-* @return 1 if ok, 0 for unkown or invalid attribute
+* @return 1 if ok, 0 for unknown or invalid attribute
 */
 static int
 vehicle_file_position_attr_get(struct vehicle_priv *priv,
@@ -916,7 +920,7 @@ vehicle_file_position_attr_get(struct vehicle_priv *priv,
 * @param type Attribute type called
 * @param attr Structure to return the attribute value
 *
-* @return 1 if ok, 0 for unkown attribute
+* @return 1 if ok, 0 for unknown attribute
 */
 static int
 vehicle_file_sat_attr_get(void *priv_data, enum attr_type type, struct attr *attr)
