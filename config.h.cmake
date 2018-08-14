@@ -99,3 +99,8 @@
 #cmakedefine HAS_IFADDRS 1
 
 #cmakedefine HAVE_POSTGRESQL 1
+
+#cmakedefine HAS_IFADDRS 1
+
+#cmakedefine HAVE_POSTGRESQL 1
+
