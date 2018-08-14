@@ -25,19 +25,6 @@ extern "C" {
 
 struct plugin;
 
-/*<<<<<<< HEAD
-enum plugin_type {
-	plugin_type_graphics,
-	plugin_type_gui,
-	plugin_type_map,
-	plugin_type_osd,
-	plugin_type_speech,
-	plugin_type_vehicle,
-	plugin_type_event,
-	plugin_type_font,
-	plugin_type_audio,
-	plugin_type_last,
-//=======*/
 /**
  * @brief All existing plugin categories.
  *
@@ -66,7 +53,6 @@ enum plugin_category {
 	plugin_category_audio,
 	/** Dummy for last entry. */
 	plugin_category_last,
-//>>>>>>> navit/trunk
 };
 #endif
 
@@ -91,22 +77,22 @@ plugin_register_##name(PLUGIN_PROTO((*func),__VA_ARGS__))				\
 {										\
 	if (plugin_##name##_func)						\
 		(*plugin_##name##_func)(__VA_ARGS__);					\
-}										
+}
 
 #define PLUGIN_FUNC1(name,t1,p1)				\
 PLUGIN_PROTO((*plugin_##name##_func),t1 p1);			\
 void plugin_call_##name(t1 p1) PLUGIN_CALL(name,p1)		\
-PLUGIN_REGISTER(name,t1 p1)					
+PLUGIN_REGISTER(name,t1 p1)
 
 #define PLUGIN_FUNC3(name,t1,p1,t2,p2,t3,p3)					\
 PLUGIN_PROTO((*plugin_##name##_func),t1 p1,t2 p2,t3 p3);				\
 void plugin_call_##name(t1 p1,t2 p2, t3 p3) PLUGIN_CALL(name,p1,p2,p3)	\
-PLUGIN_REGISTER(name,t1 p1,t2 p2,t3 p3)					
+PLUGIN_REGISTER(name,t1 p1,t2 p2,t3 p3)
 
 #define PLUGIN_FUNC4(name,t1,p1,t2,p2,t3,p3,t4,p4)					\
 PLUGIN_PROTO((*plugin_##name##_func),t1 p1,t2 p2,t3 p3,t4 p4);				\
 void plugin_call_##name(t1 p1,t2 p2, t3 p3, t4 p4) PLUGIN_CALL(name,p1,p2,p3,p4)	\
-PLUGIN_REGISTER(name,t1 p1,t2 p2,t3 p3,t4 p4)					
+PLUGIN_REGISTER(name,t1 p1,t2 p2,t3 p3,t4 p4)
 
 struct name_val {
 	char *name;
@@ -132,7 +118,7 @@ void * \
 plugin_get_category_##category(const char *name) \
 { \
 	return plugin_get_category(plugin_category_##category, #category, name); \
-} 
+}
 
 #else
 #define PLUGIN_FUNC1(name,t1,p1)			\
