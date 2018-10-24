@@ -122,7 +122,7 @@ struct i2c_nav_data{
 };
 
 struct service_priv{
-	struct navit* nav;
+	struct navit* navit;
 	struct callback_list *cbl;
 	struct attr** attrs;
 	struct service* parent;

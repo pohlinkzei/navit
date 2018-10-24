@@ -47,7 +47,7 @@ int i2c_set_attr(struct service_priv *priv, struct attr *attr){
 	switch(attr->type){
 		case attr_navit:
 			dbg(lvl_info, "Attr_Navit\n");
-			priv->nav = attr->u.navit;
+			priv->navit = attr->u.navit;
 			break;
 		case attr_name:
 			priv->name = attr->u.str;
@@ -181,11 +181,13 @@ int get_audio_data(struct service_priv* this, char audio_str[AUDIO_STR_LENGTH]){
 	int i = 0;
 	gchar str[256] = {0,};
 #ifdef USE_AUDIO_FRAMEWORK
-	strcpy(str, " ");
-	strcat(str, audio_get_current_track(this->nav));
-	strcat(str, " - ");
-	strcat(str, audio_get_current_playlist(this->nav));
-	strcat(str, " ");
+	if(this->navit){
+		strcpy(str, " ");
+		strcat(str, audio_get_current_track(this->navit));
+		strcat(str, " - ");
+		strcat(str, audio_get_current_playlist(this->navit));
+		strcat(str, " ");
+}
 #else
 	sprintf(str, " No Audio Plugin found! ");
 #endif
@@ -313,7 +315,7 @@ get_navigation_data(struct service_priv* this){
 	struct item *item = NULL;
 	enum nav_status status = 0;
 	char* name = NULL;
-	struct navit* navit = this->nav;
+	struct navit* navit = this->navit;
 	if(nav_data && navit){
 		nav = navit_get_navigation(navit);
 		if (nav){
@@ -654,7 +656,7 @@ GList* init_properties(struct service_priv *this){
 
 
 static struct service_priv *
-i2c_service_new(struct service_methods *
+i2c_service_new(struct navit *nav, struct service_methods *
 						 meth,
 						 struct callback_list *cbl,
 						 struct attr ** attrs) 
@@ -666,10 +668,10 @@ i2c_service_new(struct service_methods *
 		i2c_plugin->source = g_strdup(attr->u.str);
 		dbg (lvl_info, "Navit: %s\n", i2c_plugin->source);
 	}
-   
+		
     dbg (lvl_debug,  "Callback created successfully\n");
 	i2c_plugin->attrs=attrs;
-	//i2c_plugin->nav=nav;
+	i2c_plugin->navit=nav;
 	/* Init i2c Bus & local data 
 	//*/ 
 	i2c_plugin->navigation_data = g_new0(struct i2c_nav_data, 1);
@@ -698,7 +700,6 @@ i2c_service_new(struct service_methods *
 	dbg(lvl_info, "Methods: %p\n",meth);
     *meth=i2c_service_meth;
     dbg(lvl_info, "Methods: Plugin: %p, Get: %p, Set: %p\n",meth->plugin, meth->get_attr, meth->set_attr);
-   
 	
     return i2c_plugin;
     //*/

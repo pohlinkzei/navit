@@ -169,10 +169,10 @@ service_new(struct attr* parent, struct attr** attrs)
 {
 	struct service *this_;
 	struct attr* attr;
-	struct service_priv *(*servicetype_new) (struct service_methods *
-						 meth,
-						 struct callback_list *cbl,
-						 struct attr ** attrs);
+	struct service_priv *(*servicetype_new) (struct navit *nav, 
+						struct service_methods *meth,
+						struct callback_list *cbl,
+						struct attr ** attrs);
 
 	dbg(lvl_error, "enter\n");
 	
@@ -199,7 +199,7 @@ service_new(struct attr* parent, struct attr** attrs)
 	//TODO: Read important attrs here
 	
 	this_->cbl = callback_list_new();
-	this_->priv = servicetype_new(&this_->meth, this_->cbl, attrs);
+	this_->priv = servicetype_new(parent->u.navit, &this_->meth, this_->cbl, attrs);
 	if (!this_->priv) {
 		dbg(lvl_error, "servicetype_new failed\n");
 		callback_list_destroy(this_->cbl);

@@ -24,7 +24,7 @@ struct gui;
 PLUGIN_FUNC1(draw, struct container *, co)
 PLUGIN_FUNC3(popup, struct container *, map, struct popup *, p, struct popup_item **, list)
 
-PLUGIN_CATEGORY(service, (struct service_methods *meth, struct callback_list *cbl, struct attr **attrs))
+PLUGIN_CATEGORY(service, (struct navit *nav, struct service_methods *meth, struct callback_list *cbl, struct attr **attrs))
 PLUGIN_CATEGORY(graphics, (struct navit *nav, struct graphics_methods *meth, struct attr **attrs, struct callback_list *cbl))
 PLUGIN_CATEGORY(gui, (struct navit *nav, struct gui_methods *meth, struct attr **attrs, struct gui *gui))
 PLUGIN_CATEGORY(map, (struct map_methods *meth, struct attr **attrs, struct callback_list *cbl))
