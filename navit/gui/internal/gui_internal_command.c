@@ -44,143 +44,33 @@
 #include <arpa/inet.h>
 #endif
 
-extern char *version;
-
-/**
- * @brief Converts a WGS84 coordinate pair to its string representation.
- *
- * This function takes a coordinate pair with latitude and longitude in degrees and converts them to a
- * string of the form {@code 45°28'0" N 9°11'26" E}.
- *
- * @param gc A WGS84 coordinate pair
- * @param sep The separator character to insert between latitude and longitude
- *
- * @return The coordinates as a formatted string
- */
-static char *coordinates_geo(const struct coord_geo *gc, char sep) {
-    char latc='N',lngc='E';
-    int lat_deg,lat_min,lat_sec;
-    int lng_deg,lng_min,lng_sec;
-    struct coord_geo g=*gc;
-
-    if (g.lat < 0) {
-        g.lat=-g.lat;
-        latc='S';
-    }
-    if (g.lng < 0) {
-        g.lng=-g.lng;
-        lngc='W';
-    }
-    lat_sec=fmod(g.lat*3600+0.5,60);
-    lat_min=fmod(g.lat*60-lat_sec/60.0+0.5,60);
-    lat_deg=g.lat-lat_min/60.0-lat_sec/3600.0+0.5;
-    lng_sec=fmod(g.lng*3600+0.5,60);
-    lng_min=fmod(g.lng*60-lng_sec/60.0+0.5,60);
-    lng_deg=g.lng-lng_min/60.0-lng_sec/3600.0+0.5;;
-
-    return g_strdup_printf("%d°%d'%d\" %c%c%d°%d'%d\" %c",lat_deg,lat_min,lat_sec,latc,sep,lng_deg,lng_min,lng_sec,lngc);
-}
-
-/**
- * @brief Converts a coordinate pair to its WGS84 string representation.
- *
- * This function takes a coordinate pair, transforms it to WGS84 and converts it to a string of the form
- * {@code 45°28'0" N 9°11'26" E}.
- *
- * @param gc A coordinate pair
- * @param sep The separator character to insert between latitude and longitude
- *
- * @return The coordinates as a formatted string
- */
-char *gui_internal_coordinates(struct pcoord *pc, char sep) {
-    struct coord_geo g;
-    struct coord c;
-    c.x=pc->x;
-    c.y=pc->y;
-    transform_to_geo(pc->pro, &c, &g);
-    return coordinates_geo(&g, sep);
-
-}
-
-enum escape_mode {
-    escape_mode_none=0,
-    escape_mode_string=1,
-    escape_mode_quote=2,
-    escape_mode_html=4,
-    escape_mode_html_quote=8,
-    escape_mode_html_apos=16,
-};
-
-/* todo &=&amp;, < = &lt; */
-
-static char *gui_internal_escape(enum escape_mode mode, char *in) {
-    int len=mode & escape_mode_string ? 3:1;
-    char *dst,*out,*src=in;
-    char *quot="&quot;";
-    char *apos="&apos;";
-    while (*src) {
-        if ((*src == '"' || *src == '\\') && (mode & (escape_mode_string | escape_mode_quote)))
-            len++;
-        if (*src == '"' && mode == escape_mode_html_quote)
-            len+=strlen(quot);
-        else if (*src == '\'' && mode == escape_mode_html_apos)
-            len+=strlen(apos);
-        else
-            len++;
-        src++;
-    }
-    src=in;
-    out=dst=g_malloc(len);
-    if (mode & escape_mode_string)
-        *dst++='"';
-    while (*src) {
-        if ((*src == '"' || *src == '\\') && (mode & (escape_mode_string | escape_mode_quote)))
-            *dst++='\\';
-        if (*src == '"' && mode == escape_mode_html_quote) {
-            strcpy(dst,quot);
-            src++;
-            dst+=strlen(quot);
-        } else if (*src == '\'' && mode == escape_mode_html_apos) {
-            strcpy(dst,apos);
-            src++;
-            dst+=strlen(apos);
-        } else
-            *dst++=*src++;
-    }
-    if (mode & escape_mode_string)
-        *dst++='"';
-    *dst++='\0';
-    return out;
-}
-
-static void gui_internal_cmd_escape(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                    int *valid) {
+static int gui_internal_cmd_escape(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct attr escaped;
     if (!in || !in[0]) {
         dbg(lvl_error,"first parameter missing or wrong type");
-        return;
+        return 0;
     }
     if (!out) {
         dbg(lvl_error,"output missing");
-        return;
+        return 0;
     }
     if (ATTR_IS_STRING(in[0]->type)) {
         escaped.type=in[0]->type;
-        escaped.u.str=gui_internal_escape(escape_mode_string,in[0]->u.str);
+        escaped.u.str=str_escape(escape_mode_string,in[0]->u.str);
     } else if (ATTR_IS_INT(in[0]->type)) {
         escaped.type=attr_type_string_begin;
         escaped.u.str=g_strdup_printf("%ld",in[0]->u.num);
     } else {
         dbg(lvl_error,"first parameter wrong type");
-        return;
+        return 0;
     }
     dbg(lvl_debug,"in %s result %s",in[0]->u.str,escaped.u.str);
     *out=attr_generic_add_attr(*out, attr_dup(&escaped));
     g_free(escaped.u.str);
+    return 0;
 }
 
-static void gui_internal_cmd2_about(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                    int *valid) {
+static int gui_internal_cmd2_about(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct widget *menu,*wb,*w;
     char *text;
 
@@ -201,7 +91,7 @@ static void gui_internal_cmd2_about(struct gui_priv *this, char *function, struc
     g_free(text);
 
     //Version
-    text=g_strdup_printf("%s",version);
+    text=g_strdup_printf("%s",NAVIT_VERSION);
     gui_internal_widget_append(wb, w=gui_internal_label_new(this, text));
     w->flags=gravity_top_center|orientation_horizontal|flags_expand;
     g_free(text);
@@ -246,15 +136,15 @@ static void gui_internal_cmd2_about(struct gui_priv *this, char *function, struc
 
     gui_internal_menu_render(this);
     graphics_draw_mode(this->gra, draw_mode_end);
+    return 0;
 }
 
-static void gui_internal_cmd2_waypoints(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                        int *valid) {
+static int gui_internal_cmd2_waypoints(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     gui_internal_select_waypoint(this, _("Waypoints"), NULL, NULL, gui_internal_cmd_position, (void*)2);
+    return 0;
 }
 
-static void gui_internal_cmd_enter_coord(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd_enter_coord(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct widget *w, *wb, *wk, *wr, *we, *wnext, *row;
     wb=gui_internal_menu(this, _("Enter Coordinates"));
     w=gui_internal_box_new(this, gravity_center|orientation_vertical|flags_expand|flags_fill);
@@ -289,35 +179,37 @@ static void gui_internal_cmd_enter_coord(struct gui_priv *this, char *function, 
     gui_internal_widget_append(wr,row);
     row=gui_internal_text_new(this, "52°31'19N 19°24'46E", gravity_top_center|flags_fill|orientation_vertical);
     gui_internal_widget_append(wr,row);
+    row=gui_internal_text_new(this, "52.5219,19.4127", gravity_top_center|flags_fill|orientation_vertical);
+    gui_internal_widget_append(wr,row);
 
     if (this->keyboard)
         gui_internal_widget_append(w, gui_internal_keyboard(this, VKBD_DEGREE));
     else
         gui_internal_keyboard_show_native(this, w, VKBD_DEGREE, NULL);
     gui_internal_menu_render(this);
+    return 0;
 }
 
-static void gui_internal_cmd2_town(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                   int *valid) {
+static int gui_internal_cmd2_town(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     if (this->sl)
         search_list_select(this->sl, attr_country_all, 0, 0);
     gui_internal_search(this,_("Town"),"Town",1);
+    return 0;
 }
 
-static void gui_internal_cmd2_setting_vehicle(struct gui_priv *this, char *function, struct attr **in,
-        struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_setting_vehicle(struct gui_priv *this, char *function, struct attr **in,
+        struct attr ***out) {
     struct attr attr,attr2,vattr;
     struct widget *w,*wb,*wl;
     struct attr_iter *iter;
     struct attr active_vehicle;
 
-    iter=navit_attr_iter_new();
+    iter=navit_attr_iter_new(NULL);
     if (navit_get_attr(this->nav, attr_vehicle, &attr, iter) && !navit_get_attr(this->nav, attr_vehicle, &attr2, iter)) {
         vehicle_get_attr(attr.u.vehicle, attr_name, &vattr, NULL);
         navit_attr_iter_destroy(iter);
         gui_internal_menu_vehicle_settings(this, attr.u.vehicle, vattr.u.str);
-        return;
+        return 0;
     }
     navit_attr_iter_destroy(iter);
 
@@ -327,7 +219,7 @@ static void gui_internal_cmd2_setting_vehicle(struct gui_priv *this, char *funct
     gui_internal_widget_append(wb, w);
     if (!navit_get_attr(this->nav, attr_vehicle, &active_vehicle, NULL))
         active_vehicle.u.vehicle=NULL;
-    iter=navit_attr_iter_new();
+    iter=navit_attr_iter_new(NULL);
     while(navit_get_attr(this->nav, attr_vehicle, &attr, iter)) {
         vehicle_get_attr(attr.u.vehicle, attr_name, &vattr, NULL);
         wl=gui_internal_button_new_with_callback(this, vattr.u.str,
@@ -339,10 +231,11 @@ static void gui_internal_cmd2_setting_vehicle(struct gui_priv *this, char *funct
     }
     navit_attr_iter_destroy(iter);
     gui_internal_menu_render(this);
+    return 0;
 }
 
-static void gui_internal_cmd2_setting_rules(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_setting_rules(struct gui_priv *this, char *function, struct attr **in,
+        struct attr ***out) {
     struct widget *wb,*w;
     struct attr on,off;
     wb=gui_internal_menu(this, _("Rules"));
@@ -376,10 +269,10 @@ static void gui_internal_cmd2_setting_rules(struct gui_priv *this, char *functio
                                        gravity_left_center|orientation_horizontal|flags_fill,
                                        &on, &off));
     gui_internal_menu_render(this);
+    return 0;
 }
 
-static void gui_internal_cmd2_setting_maps(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_setting_maps(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct attr attr, on, off, description, type, data, url, active;
     struct widget *w,*wb,*row,*wma;
     char *label;
@@ -390,7 +283,7 @@ static void gui_internal_cmd2_setting_maps(struct gui_priv *this, char *function
     //w->spy=this->spacing*3;
     w = gui_internal_widget_table_new(this,gravity_left_top | flags_fill | flags_expand |orientation_vertical,1);
     gui_internal_widget_append(wb, w);
-    iter=navit_attr_iter_new();
+    iter=navit_attr_iter_new(NULL);
     on.type=off.type=attr_active;
     on.u.num=1;
     off.u.num=0;
@@ -421,12 +314,11 @@ static void gui_internal_cmd2_setting_maps(struct gui_priv *this, char *function
     }
     navit_attr_iter_destroy(iter);
     gui_internal_menu_render(this);
-
+    return 0;
 }
 
-static void gui_internal_cmd2_setting_layout(struct gui_priv *this, char *function, struct attr **in,
-        struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_setting_layout(struct gui_priv *this, char *function, struct attr **in,
+        struct attr ***out) {
     struct attr attr;
     struct widget *w,*wb,*wl,*row;
     struct attr_iter *iter;
@@ -435,7 +327,7 @@ static void gui_internal_cmd2_setting_layout(struct gui_priv *this, char *functi
     wb=gui_internal_menu(this, _("Layout"));
     w=gui_internal_widget_table_new(this, gravity_top_center|orientation_vertical|flags_expand|flags_fill,1);
     gui_internal_widget_append(wb, w);
-    iter=navit_attr_iter_new();
+    iter=navit_attr_iter_new(NULL);
     while(navit_get_attr(this->nav, attr_layout, &attr, iter)) {
         gui_internal_widget_append(w, row=gui_internal_widget_table_row_new(this,
                                           gravity_left|orientation_horizontal|flags_fill));
@@ -445,6 +337,7 @@ static void gui_internal_cmd2_setting_layout(struct gui_priv *this, char *functi
     }
     navit_attr_iter_destroy(iter);
     gui_internal_menu_render(this);
+    return 0;
 }
 
 /*
@@ -457,9 +350,8 @@ static void gui_internal_cmd2_setting_layout(struct gui_priv *this, char *functi
  * comply with *.heightlines.bin
  *
  */
-static void gui_internal_cmd2_route_height_profile(struct gui_priv *this, char *function, struct attr **in,
-        struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_route_height_profile(struct gui_priv *this, char *function, struct attr **in,
+        struct attr ***out) {
     struct widget * menu, *box;
     struct map * map=NULL;
     struct map_rect * mr=NULL;
@@ -543,7 +435,7 @@ static void gui_internal_cmd2_route_height_profile(struct gui_priv *this, char *
                 w->flags=gravity_bottom_center|orientation_horizontal|flags_fill;
                 g_free(text);
                 gui_internal_menu_render(this);
-                return;
+                return 0;
             }
         }
     }
@@ -609,7 +501,7 @@ static void gui_internal_cmd2_route_height_profile(struct gui_priv *this, char *
         gui_internal_menu_render(this);
         if(diagram_points)
             g_free(diagram_points);
-        return;
+        return 0;
     }
 
     gui_internal_menu_render(this);
@@ -671,11 +563,11 @@ static void gui_internal_cmd2_route_height_profile(struct gui_priv *this, char *
         diagram_points=diagram_points->next;
         g_free(diagram_point);
     }
+    return 0;
 }
 
-static void gui_internal_cmd2_route_description(struct gui_priv *this, char *function, struct attr **in,
-        struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_route_description(struct gui_priv *this, char *function, struct attr **in,
+        struct attr ***out) {
 
 
     struct widget * menu;
@@ -710,11 +602,10 @@ static void gui_internal_cmd2_route_description(struct gui_priv *this, char *fun
     gui_internal_widget_append(menu,box);
     gui_internal_populate_route_table(this,this->nav);
     gui_internal_menu_render(this);
-
+    return 0;
 }
 
-static void gui_internal_cmd2_pois(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                   int *valid) {
+static int gui_internal_cmd2_pois(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct widget *w;
     struct poi_param *param;
     struct attr pro;
@@ -722,11 +613,11 @@ static void gui_internal_cmd2_pois(struct gui_priv *this, char *function, struct
 
     dbg(lvl_debug,"enter");
     if (!in || !in[0])
-        return;
+        return 0;
     if (!ATTR_IS_COORD_GEO(in[0]->type))
-        return;
+        return 0;
     if (!navit_get_attr(this->nav, attr_projection, &pro, NULL))
-        return;
+        return 0;
     w=g_new0(struct widget,1);
     param=g_new0(struct poi_param,1);
     if (in[1] && ATTR_IS_STRING(in[1]->type)) {
@@ -742,10 +633,10 @@ static void gui_internal_cmd2_pois(struct gui_priv *this, char *function, struct
     gui_internal_cmd_pois(this, w, param);
     g_free(w);
     gui_internal_poi_param_free(param);
+    return 0;
 }
 
-static void gui_internal_cmd2_locale(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                     int *valid) {
+static int gui_internal_cmd2_locale(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct widget *menu,*wb,*w;
     char *text;
 
@@ -788,6 +679,7 @@ static void gui_internal_cmd2_locale(struct gui_priv *this, char *function, stru
 
     gui_internal_menu_render(this);
     graphics_draw_mode(this->gra, draw_mode_end);
+    return 0;
 }
 
 /**
@@ -800,8 +692,7 @@ static void gui_internal_cmd2_locale(struct gui_priv *this, char *function, stru
  * Currently only works on non Windows systems.
  *
  */
-static void gui_internal_cmd2_network_info(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_network_info(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
 #if HAS_IFADDRS
     struct widget *menu,*wb,*w;
     char *text;
@@ -835,10 +726,10 @@ static void gui_internal_cmd2_network_info(struct gui_priv *this, char *function
 #else
     dbg(lvl_error, "Cannot show network info: ifaddr.h not found");
 #endif
+    return 0;
 }
 
-static void gui_internal_cmd_formerdests(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd_formerdests(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct widget *wb,*w,*wbm,*tbl=NULL;
     struct map *formerdests;
     struct map_rect *mr_formerdests;
@@ -848,15 +739,15 @@ static void gui_internal_cmd_formerdests(struct gui_priv *this, char *function, 
     enum projection projection;
 
     if(!navit_get_attr(this->nav, attr_former_destination_map, &attr, NULL))
-        return;
+        return 0;
 
     formerdests=attr.u.map;
     if(!formerdests)
-        return;
+        return 0;
 
     mr_formerdests=map_rect_new(formerdests, NULL);
     if(!mr_formerdests)
-        return;
+        return 0;
 
     projection = map_projection(formerdests);
 
@@ -902,46 +793,48 @@ static void gui_internal_cmd_formerdests(struct gui_priv *this, char *function, 
     }
     gui_internal_menu_render(this);
     map_rect_destroy(mr_formerdests);
+    return 0;
 }
 
-static void gui_internal_cmd2_bookmarks(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                        int *valid) {
+static int gui_internal_cmd2_bookmarks(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     char *str=NULL;
     if (in && in[0] && ATTR_IS_STRING(in[0]->type)) {
         str=in[0]->u.str;
     }
 
     gui_internal_cmd_bookmarks(this, NULL, str);
+    return 0;
 }
 
-static void gui_internal_cmd2_abort_navigation(struct gui_priv *this, char *function, struct attr **in,
-        struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_abort_navigation(struct gui_priv *this, char *function, struct attr **in,
+        struct attr ***out) {
     navit_set_destination(this->nav, NULL, NULL, 0);
+    return 0;
 }
 
-static void gui_internal_cmd2_back(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                   int *valid) {
+static int gui_internal_cmd2_back(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     graphics_draw_mode(this->gra, draw_mode_begin);
     gui_internal_back(this, NULL, NULL);
     graphics_draw_mode(this->gra, draw_mode_end);
     gui_internal_check_exit(this);
+    return 0;
 }
 
-static void gui_internal_cmd2_back_to_map(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-        int *valid) {
+static int gui_internal_cmd2_back_to_map(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     gui_internal_prune_menu(this, NULL);
     gui_internal_check_exit(this);
+    return 0;
 }
 
 
-static void gui_internal_get_data(struct gui_priv *priv, char *command, struct attr **in, struct attr ***out) {
+static int gui_internal_get_data(struct gui_priv *priv, char *command, struct attr **in, struct attr ***out) {
     struct attr private_data = { attr_private_data, {(void *)&priv->data}};
     if (out)
         *out=attr_generic_add_attr(*out, &private_data);
+    return 0;
 }
 
-static void gui_internal_cmd_log(struct gui_priv *this) {
+static int gui_internal_cmd_log(struct gui_priv *this, char *command, struct attr **in, struct attr ***out) {
     struct widget *w,*wb,*wk,*wl,*we,*wnext;
     gui_internal_enter(this, 1);
     gui_internal_set_click_coord(this, NULL);
@@ -971,10 +864,10 @@ static void gui_internal_cmd_log(struct gui_priv *this) {
                                           getenv("LANG"));
     gui_internal_menu_render(this);
     gui_internal_leave(this);
+    return 0;
 }
 
-static void gui_internal_cmd_menu2(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                   int *valid) {
+static int gui_internal_cmd_menu2(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     char *href=NULL;
     int i=0, ignore=0, replace=0;
 
@@ -989,23 +882,23 @@ static void gui_internal_cmd_menu2(struct gui_priv *this, char *function, struct
 
     if (this->root.children) {
         if (!href)
-            return;
+            return 0;
         gui_internal_html_load_href(this, href, replace);
-        return;
+        return 0;
     }
     gui_internal_cmd_menu(this, ignore, href);
+    return 0;
 }
 
-static void gui_internal_cmd2_position(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                       int *valid) {
+static int gui_internal_cmd2_position(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     const char *name=_("Position");
     int flags=-1;
 
     dbg(lvl_debug,"enter");
     if (!in || !in[0])
-        return;
+        return 0;
     if (!ATTR_IS_COORD_GEO(in[0]->type))
-        return;
+        return 0;
     if (in[1] && ATTR_IS_STRING(in[1]->type)) {
         name=in[1]->u.str;
         if (in[2] && ATTR_IS_INT(in[2]->type))
@@ -1013,26 +906,26 @@ static void gui_internal_cmd2_position(struct gui_priv *this, char *function, st
     }
     dbg(lvl_debug,"flags=0x%x",flags);
     gui_internal_cmd_position_do(this, NULL, in[0]->u.coord_geo, NULL, name, flags);
+    return 0;
 }
 
-static void gui_internal_cmd_redraw_map(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                        int *valid) {
+static int gui_internal_cmd_redraw_map(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     this->redraw=1;
+    return 0;
 }
 
-static void gui_internal_cmd2_refresh(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                      int *valid) {
+static int gui_internal_cmd2_refresh(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     char *href=g_strdup(this->href);
     gui_internal_html_load_href(this, href, 1);
     g_free(href);
+    return 0;
 }
 
-static void gui_internal_cmd2_set(struct gui_priv *this, char *function, struct attr **in, struct attr ***out,
-                                  int *valid) {
+static int gui_internal_cmd2_set(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     char *pattern,*command=NULL;
     if (!in || !in[0] || !ATTR_IS_STRING(in[0]->type)) {
         dbg(lvl_error,"first parameter missing or wrong type");
-        return;
+        return 0;
     }
     pattern=in[0]->u.str;
     dbg(lvl_debug,"pattern %s",pattern);
@@ -1045,26 +938,27 @@ static void gui_internal_cmd2_set(struct gui_priv *this, char *function, struct 
     } else {
         gui_internal_set(pattern, NULL);
     }
-
+    return 0;
 }
 
-void gui_internal_cmd2_quit(struct gui_priv *this, char *function, struct attr **in, struct attr ***out, int *valid) {
+int gui_internal_cmd2_quit(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     struct attr navit;
     gui_internal_prune_menu(this, NULL);
     navit.type=attr_navit;
     navit.u.navit=this->nav;
     config_remove_attr(config, &navit);
     event_main_loop_quit();
+    return 0;
 }
 
 static char *gui_internal_append_attr(char *str, enum escape_mode mode, char *pre, struct attr *attr, char *post) {
     char *astr=NULL;
     if (ATTR_IS_STRING(attr->type))
-        astr=gui_internal_escape(mode, attr->u.str);
+        astr=str_escape(mode, attr->u.str);
     else if (ATTR_IS_COORD_GEO(attr->type)) {
-        char *str2=coordinates_geo(attr->u.coord_geo, '\n');
-        astr=gui_internal_escape(mode, str2);
-        g_free(str2);
+        char coord_str[32];
+        coord_geo_format_short(attr->u.coord_geo, coord_str, sizeof(coord_str), "\n");
+        astr=str_escape(mode, coord_str);
     } else if (ATTR_IS_INT(attr->type))
         astr=g_strdup_printf("%ld",attr->u.num);
     else
@@ -1074,12 +968,11 @@ static char *gui_internal_append_attr(char *str, enum escape_mode mode, char *pr
     return str;
 }
 
-static void gui_internal_cmd_write(struct gui_priv * this, char *function, struct attr **in, struct attr ***out,
-                                   int *valid) {
+static int gui_internal_cmd_write(struct gui_priv * this, char *function, struct attr **in, struct attr ***out) {
     char *str=NULL;
-    dbg(lvl_debug,"enter %s %p %p %p",function,in,out,valid);
+    dbg(lvl_debug,"enter %s %p %p",function,in,out);
     if (!in)
-        return;
+        return 0;
     while (*in) {
         str=gui_internal_append_attr(str, escape_mode_none, "", *in, "");
         in++;
@@ -1092,6 +985,7 @@ static void gui_internal_cmd_write(struct gui_priv * this, char *function, struc
         gui_internal_html_parse_text(this, str);
     }
     g_free(str);
+    return 0;
 }
 
 static void gui_internal_onclick(struct attr ***in, char **onclick, char *set) {
@@ -1131,7 +1025,7 @@ static void gui_internal_onclick(struct attr ***in, char **onclick, char *set) {
             if (!strcmp(format,"se")) {
                 replacement=gui_internal_append_attr(NULL, escape_mode_string, "", *i++, "");
                 if (is_arg) {
-                    char *arg=gui_internal_escape(escape_mode_string, replacement);
+                    char *arg=str_escape(escape_mode_string, replacement);
                     args=g_strconcat_printf(args, "%s%s", args ? "," : "", arg);
                     g_free(replacement);
                     g_free(arg);
@@ -1156,7 +1050,7 @@ static void gui_internal_onclick(struct attr ***in, char **onclick, char *set) {
     if (str && strlen(str)) {
         char *old=*onclick;
         if (set) {
-            char *setstr=gui_internal_escape(escape_mode_string,str);
+            char *setstr=str_escape(escape_mode_string,str);
             char *argssep="";
             if (args && strlen(args))
                 argssep=",";
@@ -1172,8 +1066,7 @@ error:
     return;
 }
 
-static void gui_internal_cmd_img(struct gui_priv * this, char *function, struct attr **in, struct attr ***out,
-                                 int *valid) {
+static int gui_internal_cmd_img(struct gui_priv * this, char *function, struct attr **in, struct attr ***out) {
     char *str=g_strdup("<img"),*suffix=NULL,*onclick=g_strdup(""),*html;
 
     if (ATTR_IS_STRING((*in)->type)) {
@@ -1208,7 +1101,7 @@ static void gui_internal_cmd_img(struct gui_priv * this, char *function, struct 
     gui_internal_onclick(&in,&onclick,"set");
     gui_internal_onclick(&in,&onclick,NULL);
     if (strlen(onclick)) {
-        char *tmp=gui_internal_escape(escape_mode_html_apos, onclick);
+        char *tmp=str_escape(escape_mode_html_apos, onclick);
         str=g_strconcat_printf(str," onclick='%s'",tmp);
         g_free(tmp);
     }
@@ -1220,11 +1113,10 @@ static void gui_internal_cmd_img(struct gui_priv * this, char *function, struct 
 error:
     g_free(suffix);
     g_free(str);
-    return;
+    return 0;
 }
 
-static void gui_internal_cmd_debug(struct gui_priv * this, char *function, struct attr **in, struct attr ***out,
-                                   int *valid) {
+static int gui_internal_cmd_debug(struct gui_priv * this, char *function, struct attr **in, struct attr ***out) {
     char *str;
     dbg(lvl_debug,"begin");
     if (in) {
@@ -1236,9 +1128,10 @@ static void gui_internal_cmd_debug(struct gui_priv * this, char *function, struc
         }
     }
     dbg(lvl_debug,"done");
+    return 0;
 }
 
-static void gui_internal_cmd2(struct gui_priv *this, char *function, struct attr **in, struct attr ***out, int *valid) {
+static int gui_internal_cmd2(struct gui_priv *this, char *function, struct attr **in, struct attr ***out) {
     int entering=0;
     int ignore=1;
     if (in && in[0] && ATTR_IS_INT(in[0]->type)) {
@@ -1254,40 +1147,41 @@ static void gui_internal_cmd2(struct gui_priv *this, char *function, struct attr
     }
 
     if(!strcmp(function, "bookmarks"))
-        gui_internal_cmd2_bookmarks(this, function, in, out, valid);
+        gui_internal_cmd2_bookmarks(this, function, in, out);
     else if(!strcmp(function, "formerdests"))
-        gui_internal_cmd_formerdests(this, function, in, out, valid);
+        gui_internal_cmd_formerdests(this, function, in, out);
     else if(!strcmp(function, "locale"))
-        gui_internal_cmd2_locale(this, function, in, out, valid);
+        gui_internal_cmd2_locale(this, function, in, out);
     else if(!strcmp(function, "network_info"))
-        gui_internal_cmd2_network_info(this, function, in, out, valid);
+        gui_internal_cmd2_network_info(this, function, in, out);
     else if(!strcmp(function, "position"))
-        gui_internal_cmd2_position(this, function, in, out, valid);
+        gui_internal_cmd2_position(this, function, in, out);
     else if(!strcmp(function, "pois"))
-        gui_internal_cmd2_pois(this, function, in, out, valid);
+        gui_internal_cmd2_pois(this, function, in, out);
     else if(!strcmp(function, "route_description"))
-        gui_internal_cmd2_route_description(this, function, in, out, valid);
+        gui_internal_cmd2_route_description(this, function, in, out);
     else if(!strcmp(function, "route_height_profile"))
-        gui_internal_cmd2_route_height_profile(this, function, in, out, valid);
+        gui_internal_cmd2_route_height_profile(this, function, in, out);
     else if(!strcmp(function, "setting_layout"))
-        gui_internal_cmd2_setting_layout(this, function, in, out, valid);
+        gui_internal_cmd2_setting_layout(this, function, in, out);
     else if(!strcmp(function, "setting_maps"))
-        gui_internal_cmd2_setting_maps(this, function, in, out, valid);
+        gui_internal_cmd2_setting_maps(this, function, in, out);
     else if(!strcmp(function, "setting_rules"))
-        gui_internal_cmd2_setting_rules(this, function, in, out, valid);
+        gui_internal_cmd2_setting_rules(this, function, in, out);
     else if(!strcmp(function, "setting_vehicle"))
-        gui_internal_cmd2_setting_vehicle(this, function, in, out, valid);
+        gui_internal_cmd2_setting_vehicle(this, function, in, out);
     else if(!strcmp(function, "town"))
-        gui_internal_cmd2_town(this, function, in, out, valid);
+        gui_internal_cmd2_town(this, function, in, out);
     else if(!strcmp(function, "enter_coord"))
-        gui_internal_cmd_enter_coord(this, function, in, out, valid);
+        gui_internal_cmd_enter_coord(this, function, in, out);
     else if(!strcmp(function, "waypoints"))
-        gui_internal_cmd2_waypoints(this, function, in, out, valid);
+        gui_internal_cmd2_waypoints(this, function, in, out);
     else if(!strcmp(function, "about"))
-        gui_internal_cmd2_about(this, function, in, out, valid);
+        gui_internal_cmd2_about(this, function, in, out);
 
     if(entering)
         graphics_draw_mode(this->gra, draw_mode_end);
+    return 0;
 }
 
 static struct command_table commands[] = {
@@ -1330,7 +1224,7 @@ static struct command_table commands[] = {
 
 void gui_internal_command_init(struct gui_priv *this, struct attr **attrs) {
     struct attr *attr;
-    if ((attr=attr_search(attrs, NULL, attr_callback_list))) {
+    if ((attr=attr_search(attrs, attr_callback_list))) {
         command_add_table(attr->u.callback_list, commands, sizeof(commands)/sizeof(struct command_table), this);
     }
 }

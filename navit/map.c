@@ -52,11 +52,6 @@
 #include "country.h"
 #include "xmlconfig.h"
 
-/**
- * @brief Holds information about a map
- *
- * This structure holds information about a map.
- */
 struct map {
     NAVIT_OBJECT
     struct map_methods meth;			/**< Structure with pointers to the map plugin's functions */
@@ -64,11 +59,6 @@ struct map {
     struct callback_list *attr_cbl;		/**< List of callbacks that are called when attributes change */
 };
 
-/**
- * @brief Describes a rectangular extract of a map
- *
- * This structure describes a rectangular extract of a map.
- */
 struct map_rect {
     struct map *m;				/**< The map this extract is from */
     struct map_rect_priv *priv; /**< Private data of this map rect, only known to the map plugin */
@@ -92,7 +82,7 @@ struct map *
 map_new(struct attr *parent, struct attr **attrs) {
     struct map *m;
     struct map_priv *(*maptype_new)(struct map_methods *meth, struct attr **attrs, struct callback_list *cbl);
-    struct attr *type=attr_search(attrs, NULL, attr_type);
+    struct attr *type=attr_search(attrs, attr_type);
 
     if (! type) {
         dbg(lvl_error,"missing type");
@@ -338,6 +328,14 @@ map_rect_get_item(struct map_rect *mr) {
 /**
  * @brief Returns the item specified by the ID
  *
+ * Map drivers may or may not allow multiple items with identical IDs. This function is not guaranteed to be
+ * suitable for iterating over multiple items with identical IDs in the same manner as `map_rect_get_item()`,
+ * as multiple subsequent calls may return items which were already returned by earlier calls.
+ *
+ * If you are working with maps which allow multiple items with identical IDs, the only portable way to
+ * iterate over all items with a given ID is to use `map_rect_get_item()` and skip all items with
+ * non-matching IDs.
+ *
  * @param mr The map rect to search for the item
  * @param id_hi High part of the ID to be found
  * @param id_lo Low part of the ID to be found
@@ -367,12 +365,6 @@ void map_rect_destroy(struct map_rect *mr) {
     }
 }
 
-/**
- * @brief Holds information about a search on a map
- *
- * This structure holds information about a search performed on a map. This can be
- * used as "handle" to retrieve items from a search.
- */
 struct map_search {
     struct map *m;
     struct attr search_attr;

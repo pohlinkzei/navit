@@ -21,6 +21,9 @@
 #include "gui_internal_menu.h"
 #include "gui_internal_keyboard.h"
 #include "gui_internal_search.h"
+#ifdef HAVE_API_ANDROID
+#include "util.h"
+#endif
 
 static void gui_internal_search_country(struct gui_priv *this, struct widget *widget, void *data) {
     gui_internal_prune_menu_count(this, 1, 0);
@@ -425,8 +428,13 @@ static void gui_internal_search_changed(struct gui_priv *this, struct widget *wm
         dbg(lvl_debug,"process");
         if (! strcmp(wm->name,"Country"))
             search_attr.type=attr_country_all;
-        if (! strcmp(wm->name,"Town"))
-            search_attr.type=attr_town_or_district_name;
+        if (! strcmp(wm->name,"Town")) {
+            if(this->town_use_postal) {
+                search_attr.type=attr_town_postal; /*attr_town_or_district_name to exclude zip code*/
+            } else {
+                search_attr.type=attr_town_or_district_name;
+            }
+        }
         if (! strcmp(wm->name,"Street"))
             search_attr.type=attr_street_name;
         if (! strcmp(wm->name,"House number"))

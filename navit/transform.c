@@ -261,7 +261,16 @@ transform_dup(struct transformation *t) {
 static const navit_float gar2geo_units = 360.0/(1<<24);
 static const navit_float geo2gar_units = 1/(360.0/(1<<24));
 
-void transform_to_geo(enum projection pro, struct coord *c, struct coord_geo *g) {
+/**
+ * @brief Transform the coordinates of a geographical point from a coord representation to a geographical (lat, long) representation
+ *
+ * @note This is the reverse of transform_from_geo()
+ *
+ * @param pro The projection to use during the transformation
+ * @param[in] c The coordinates as a struct coord format
+ * @param[out] g The coordinates converted to coord_geo (latitude, longitude)
+ */
+void transform_to_geo(enum projection pro, const struct coord *c, struct coord_geo *g) {
     int x,y,northern,zone;
     switch (pro) {
     case projection_mg:
@@ -288,7 +297,16 @@ void transform_to_geo(enum projection pro, struct coord *c, struct coord_geo *g)
     }
 }
 
-void transform_from_geo(enum projection pro, struct coord_geo *g, struct coord *c) {
+/**
+ * @brief Transform the coordinates of a geographical point from a geographical (lat, long) representation to a coord representation
+ *
+ * @note This is the reverse of transform_to_geo()
+ *
+ * @param pro The projection to use during the transformation
+ * @param[in] g The coordinates as coord_geo (latitude, longitude)
+ * @param[out] c The coordinates converted to a struct coord format
+ */
+void transform_from_geo(enum projection pro, const struct coord_geo *g, struct coord *c) {
     switch (pro) {
     case projection_mg:
         c->x=g->lng*6371000.0*M_PI/180;
@@ -527,14 +545,21 @@ static struct z_clip_result transform_z_clip_if_necessary(struct coord_3d coord,
     return clip_result;
 }
 
-int transform(struct transformation *t, enum projection required_projection, struct coord *input,
-              struct point *result, int count, int mindist, int width, int *width_result) {
+int transform_point(struct transformation *t, enum projection required_projection, struct coord *input,
+                    struct point *result) {
+    return transform_point_buf(t, required_projection, input, result, sizeof(struct point), 1, 0, 0, NULL);
+}
+
+int transform_point_buf(struct transformation *t, enum projection required_projection, struct coord *input,
+                        struct point *result, long result_size, int count, int mindist, int width, int *width_result) {
     struct coord projected_coord, shifted_coord;
     struct coord_3d rotated_coord;
     struct point screen_point;
     int zlimit=t->znear;
     struct z_clip_result clip_result, clip_result_old= {{0,0}, -1, 0, 0};
     int i,result_idx = 0,result_idx_last=0;
+    long max_results = result_size / sizeof(struct point);
+
     dbg(lvl_debug,"count=%d", count);
     for (i=0; i < count; i++) {
         dbg(lvl_debug, "input coord %d: (%d, %d)", i, input[i].x, input[i].y);
@@ -552,7 +577,14 @@ int transform(struct transformation *t, enum projection required_projection, str
             clip_result=transform_z_clip_if_necessary(rotated_coord, zlimit, clip_result_old);
             clip_result_old=clip_result;
             if(clip_result.process_coord_again) {
-                i--;
+                /* if we repeat an interation, we have to make sure that there is enough space in the result buffer to
+                   not overflow. */
+                if (result_idx + 1  < max_results) {
+                    i--;
+                } else {
+                    dbg(lvl_debug, "Not enough space in buf for transform_point_buf");
+                    return TRANSFORM_ERR_BUF_SPACE;
+                }
             } else if (clip_result.skip_coord) {
                 continue;
             }
@@ -993,6 +1025,15 @@ int transform_int_scale(int y) {
 }
 #endif
 
+/**
+ * @brief Calculates the distance between two points.
+ *
+ * @param pro The projection used for `c1` and `c2`.
+ * @param c1 The first point.
+ * @param c2 The second point.
+ *
+ * @return The distance in meters.
+ */
 double transform_distance(enum projection pro, struct coord *c1, struct coord *c2) {
     if (pro == projection_mg) {
 #ifndef AVOID_FLOAT

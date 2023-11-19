@@ -1,4 +1,4 @@
-/**
+/*
  * Navit, a modular navigation system.
  * Copyright (C) 2005-2011 Navit Team
  *
@@ -85,13 +85,10 @@ void item_bin_copy_coord(struct item_bin *ib, struct item_bin *from, int dir) {
     for (i = 1 ; i <= count ; i++)
         item_bin_add_coord(ib, &c[count-i], 1);
 }
-
 void item_bin_copy_attr(struct item_bin *ib, struct item_bin *from, enum attr_type attr) {
     struct attr_bin *ab=item_bin_get_attr_bin(from, attr, NULL);
     if (ab)
         item_bin_add_attr_data(ib, ab->type, (void *)(ab+1), (ab->len-1)*4);
-    assert(attr == attr_osm_wayid);
-    assert(item_bin_get_wayid(ib) == item_bin_get_wayid(from));
 }
 
 void item_bin_add_coord_rect(struct item_bin *ib, struct rect *r) {
@@ -224,6 +221,37 @@ void item_bin_add_attr_range(struct item_bin *ib, enum attr_type type, short min
     attr.u.range.min=min;
     attr.u.range.max=max;
     item_bin_add_attr(ib, &attr);
+}
+
+/**
+ * @brief add a "hole" to an item
+ *
+ * This function adds a "hole" (attr_poly_hole) to a map item. It adds the
+ * coordinates and the coordinate count to the existing item.
+ * WARNING: It does NOT allocate any memory, so the memory after the item
+ * must be already allocated for that purpose.
+ * @param[inout] ib item - to add hole to
+ * @param[in] coord - hole coordinate array
+ * @param[in] ccount - number of coordinates in coord
+ */
+void item_bin_add_hole(struct item_bin * ib, struct coord * coord, int ccount) {
+    /* get space for next attr in buffer */
+    int * buffer = ((int *) ib) + ib->len +1;
+    /* get the attr heder in binary file */
+    struct attr_bin * attr = (struct attr_bin *)buffer;
+    /* fill header */
+    attr->len = (ccount *2) + 2;
+    attr->type = attr_poly_hole;
+    /* get the first attr byte in buffer */
+    buffer = (int *)(attr +1);
+    /* for poly_hole, the first 4 bytes are the coordinate count */
+    *buffer = ccount;
+    /* coordinates are behind that */
+    buffer ++;
+    /* copy in the coordinates */
+    memcpy(buffer,coord, ccount * sizeof(struct coord));
+    /* add the hole to the total size */
+    ib->len += attr->len +1;
 }
 
 void item_bin_write(struct item_bin *ib, FILE *out) {
@@ -458,7 +486,7 @@ static int item_bin_sort_compare(const void *p1, const void *p2) {
     if(attr1&&attr2) {
         s1=(char *)(attr1+1);
         s2=(char *)(attr2+1);
-        ret=strcmp(s1,s2);
+        ret=g_strcmp0(s1,s2);
         if(ret)
             return ret;
     }
@@ -475,7 +503,7 @@ static int item_bin_sort_compare(const void *p1, const void *p2) {
     s1=linguistics_casefold(s1);
     s2=linguistics_casefold(s2);
 
-    ret=strcmp(s1, s2);
+    ret=g_strcmp0(s1, s2);
     g_free(s1);
     g_free(s2);
 

@@ -16,7 +16,6 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301, USA.
  */
-// style with: clang-format -style=WebKit -i *
 
 #ifndef __graphics_qt_h
 #define __graphics_qt_h

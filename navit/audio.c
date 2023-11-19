@@ -172,7 +172,7 @@ audio_new(struct attr *parent, struct attr **attrs)
 						struct attr **attrs,
 						struct attr *parent
 	);
-	attr=attr_search(attrs, NULL, attr_type);
+	attr=attr_search(attrs, attr_type);
 	if (! attr) {
 			dbg(lvl_error,"type missing\n");
 			return NULL;
@@ -190,7 +190,7 @@ audio_new(struct attr *parent, struct attr **attrs)
 
 	navit_object_ref((struct navit_object *)this_);
 	
-	attr=attr_search(attrs, NULL, attr_name);
+	attr=attr_search(attrs, attr_name);
 	if(attr){
 		
 		this_->name = g_strdup(attr->u.str);

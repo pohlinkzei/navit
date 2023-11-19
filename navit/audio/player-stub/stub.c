@@ -919,7 +919,7 @@ stub_stub_idle (struct audio_priv *stub)
 void stub_pause(void)
 {
 	stub->playing = 0;
-	struct attr* playing = attr_search(stub->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(stub->attrs, attr_playing);
 	if(playing)
 		playing->u.num = stub->playing;
 	else
@@ -934,7 +934,7 @@ void stub_pause(void)
 void stub_play(void)
 {
 	stub->playing = 1;
-	struct attr* playing = attr_search(stub->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(stub->attrs, attr_playing);
 	if(playing)
 		playing->u.num = stub->playing;
 	else
@@ -952,7 +952,7 @@ void stub_play(void)
 void stub_play_track(int track)
 {
 	stub->playing = 1;
-	struct attr* playing = attr_search(stub->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(stub->attrs, attr_playing);
 	if(playing)
 		playing->u.num = stub->playing;
 	else
@@ -1111,7 +1111,7 @@ void
 stub_toggle_playback (struct audio_actions *action)
 {
 
-	struct attr* playing = attr_search(stub->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(stub->attrs, attr_playing);
 	if(playing){
 		stub_get_attr(stub, attr_playing, playing);
 		playing->u.num = stub->playing;
@@ -1521,7 +1521,7 @@ player_stub_new(struct audio_methods *meth, struct callback_list * cbl, struct a
 	/* example for reading an attribute from navit.xml
 	 * here is the path to the music directory given
 	 */
-    if ((attr = attr_search (attrs, NULL, attr_music_dir)))
+    if ((attr = attr_search (attrs, attr_music_dir)))
 	{
 		stub->musicdir = g_strdup(attr->u.str);
 		dbg (lvl_info, "found music directory: %s\n", stub->musicdir);
@@ -1539,7 +1539,7 @@ player_stub_new(struct audio_methods *meth, struct callback_list * cbl, struct a
     stub->playing = false;
 	stub->attrs=attrs;
     //*
-    playing = attr_search(stub->attrs, NULL, attr_playing);
+    playing = attr_search(stub->attrs, attr_playing);
 
     if(!playing){
 		playing = g_new0( struct attr, 1);
@@ -1547,7 +1547,7 @@ player_stub_new(struct audio_methods *meth, struct callback_list * cbl, struct a
 		stub->attrs=attr_generic_add_attr(stub->attrs, playing);
 		dbg (lvl_debug,"*\n");
 	}	
-	repeat = attr_search(stub->attrs, NULL, attr_repeat);
+	repeat = attr_search(stub->attrs, attr_repeat);
 
     if(!repeat){
 		repeat = g_new0( struct attr, 1);
@@ -1555,7 +1555,7 @@ player_stub_new(struct audio_methods *meth, struct callback_list * cbl, struct a
 		stub->attrs=attr_generic_add_attr(stub->attrs, repeat);
 		dbg (lvl_debug,"*\n");
 	}	
-	shuffle = attr_search(stub->attrs, NULL, attr_shuffle);
+	shuffle = attr_search(stub->attrs, attr_shuffle);
 
     if(!shuffle){
 		shuffle = g_new0( struct attr, 1);

@@ -38,7 +38,7 @@ extern "C" {
 #include <time.h>
 
 #include "vehicle_qt5.h"
-#include "vehicle_qt5.moc"
+// #include "vehicle_qt5.moc"
 #include <QDateTime>
 
 /**
@@ -75,7 +75,6 @@ void QNavitGeoReceiver::satellitesInViewUpdated(const QList<QGeoSatelliteInfo>& 
 }
 
 void QNavitGeoReceiver::positionUpdated(const QGeoPositionInfo& info) {
-
     /* ignore stale view */
     if (info.coordinate().isValid()) {
         if (info.timestamp().toUTC().secsTo(QDateTime::currentDateTimeUtc()) > 20) {
@@ -116,18 +115,24 @@ void QNavitGeoReceiver::positionUpdated(const QGeoPositionInfo& info) {
         dbg(lvl_debug, "Got valid coordinate (lat %f, lon %f)", info.coordinate().latitude(), info.coordinate().longitude());
         priv->geo.lat = info.coordinate().latitude();
         priv->geo.lng = info.coordinate().longitude();
-        priv->have_coords = 1;
         if (info.coordinate().type() == QGeoCoordinate::Coordinate3D) {
             dbg(lvl_debug, "Got valid altitude (alt %f)", info.coordinate().altitude());
             priv->height = info.coordinate().altitude();
         }
-        //dbg(lvl_debug, "Time %s", info.timestamp().toUTC().toString().toLatin1().data());
+        // dbg(lvl_debug, "Time %s", info.timestamp().toUTC().toString().toLatin1().data());
         priv->fix_time = info.timestamp().toUTC().toTime_t();
         callback_list_call_attr_0(priv->cbl, attr_position_coord_geo);
+        if (priv->have_coords != attr_position_valid_valid) {
+            priv->have_coords = attr_position_valid_valid;
+            callback_list_call_attr_0(priv->cbl, attr_position_valid);
+        }
     } else {
         dbg(lvl_debug, "Got invalid coordinate");
-        priv->have_coords = 0;
         callback_list_call_attr_0(priv->cbl, attr_position_coord_geo);
+        if (priv->have_coords != attr_position_valid_invalid) {
+            priv->have_coords = attr_position_valid_invalid;
+            callback_list_call_attr_0(priv->cbl, attr_position_valid);
+        }
     }
 }
 
@@ -185,7 +190,7 @@ static int vehicle_qt5_position_attr_get(struct vehicle_priv* priv,
         break;
     case attr_position_coord_geo:
         attr->u.coord_geo = &priv->geo;
-        if (!priv->have_coords)
+        if (priv->have_coords != attr_position_valid_valid)
             return 0;
         break;
     case attr_position_time_iso8601:
@@ -199,15 +204,15 @@ static int vehicle_qt5_position_attr_get(struct vehicle_priv* priv,
                 priv->fix_time = 0;
                 return 0;
             }
-            //dbg(lvl_debug,"Fix Time: %s", priv->fixiso8601);
+            // dbg(lvl_debug,"Fix Time: %s", priv->fixiso8601);
         } else {
-            //dbg(lvl_debug,"Fix Time: 0");
+            // dbg(lvl_debug,"Fix Time: 0");
             return 0;
         }
         break;
 
     case attr_active:
-        active = attr_search(priv->attrs, NULL, attr_active);
+        active = attr_search(priv->attrs, attr_active);
         if (active != NULL) {
             attr->u.num = active->u.num;
             return 1;
@@ -233,7 +238,10 @@ static int vehicle_qt5_set_attr(struct vehicle_priv* priv, struct attr* attr) {
         break;
     case attr_position_coord_geo:
         priv->geo = *attr->u.coord_geo;
-        priv->have_coords = 1;
+        if (priv->have_coords != attr_position_valid_valid) {
+            priv->have_coords = attr_position_valid_valid;
+            callback_list_call_attr_0(priv->cbl, attr_position_valid);
+        }
         break;
     default:
         break;
@@ -273,8 +281,10 @@ static struct vehicle_priv* vehicle_qt5_new_qt5(struct vehicle_methods* meth,
     } else {
         dbg(lvl_debug, "Using %s", ret->source->sourceName().toLatin1().data());
         ret->receiver = new QNavitGeoReceiver(NULL, ret);
-        ret->satellites->setUpdateInterval(1000);
-        ret->satellites->startUpdates();
+        if (ret->satellites != NULL) {
+            ret->satellites->setUpdateInterval(1000);
+            ret->satellites->startUpdates();
+        }
         ret->source->setUpdateInterval(500);
         ret->source->startUpdates();
     }

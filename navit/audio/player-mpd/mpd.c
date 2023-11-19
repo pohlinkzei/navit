@@ -1310,7 +1310,7 @@ void mpd_pause(void)
 {
 	mpd->playing = 0;
 	system("mpc pause");
-	struct attr* playing = attr_search(mpd->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(mpd->attrs, attr_playing);
 	if(playing)
 		playing->u.num = mpd->playing;
 	else
@@ -1326,7 +1326,7 @@ void mpd_play(void)
 {
 	mpd->playing = true;
 	system("mpc play");
-	struct attr* playing = attr_search(mpd->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(mpd->attrs, attr_playing);
 	if(playing)
 		playing->u.num = mpd->playing;
 	else
@@ -1346,7 +1346,7 @@ void mpd_play_track(int track)
 	mpd->playing = true;
 	sprintf(command, "mpc play %i", track);
 	system(command);
-	struct attr* playing = attr_search(mpd->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(mpd->attrs, attr_playing);
 	if(playing)
 		playing->u.num = mpd->playing;
 	else
@@ -1525,7 +1525,7 @@ void mpd_toggle_shuffle(struct audio_actions *action){
 void
 mpd_toggle_playback (struct audio_actions *action)
 {
-	struct attr* playing = attr_search(mpd->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(mpd->attrs, attr_playing);
 	if(playing){
 		mpd_get_attr(mpd, attr_playing, playing);
 		playing->u.num = mpd->playing;
@@ -1894,8 +1894,8 @@ player_mpd_new(struct audio_methods *meth, struct callback_list * cbl, struct at
 	srandom(time(NULL));
 	mpd = g_new0 (struct audio_priv, 1);
 
-	attr=attr_search(attrs, NULL, attr_music_dir);
-    if ((attr = attr_search (attrs, NULL, attr_music_dir)))
+	attr=attr_search(attrs, attr_music_dir);
+    if ((attr = attr_search (attrs, attr_music_dir)))
       {
           mpd->musicdir = g_strdup(attr->u.str);
 
@@ -1927,7 +1927,7 @@ player_mpd_new(struct audio_methods *meth, struct callback_list * cbl, struct at
     mpd->playing = false;
 	mpd->attrs=attrs;
     //*
-    playing = attr_search(mpd->attrs, NULL, attr_playing);
+    playing = attr_search(mpd->attrs, attr_playing);
 
     if(!playing){
 		playing = g_new0( struct attr, 1);
@@ -1935,7 +1935,7 @@ player_mpd_new(struct audio_methods *meth, struct callback_list * cbl, struct at
 		mpd->attrs=attr_generic_add_attr(mpd->attrs, playing);
 
 	}	
-	repeat = attr_search(mpd->attrs, NULL, attr_repeat);
+	repeat = attr_search(mpd->attrs, attr_repeat);
 
     if(!repeat){
 		repeat = g_new0( struct attr, 1);
@@ -1943,7 +1943,7 @@ player_mpd_new(struct audio_methods *meth, struct callback_list * cbl, struct at
 		mpd->attrs=attr_generic_add_attr(mpd->attrs, repeat);
 
 	}	
-	shuffle = attr_search(mpd->attrs, NULL, attr_shuffle);
+	shuffle = attr_search(mpd->attrs, attr_shuffle);
 
     if(!shuffle){
 		shuffle = g_new0( struct attr, 1);

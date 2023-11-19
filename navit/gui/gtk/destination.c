@@ -33,7 +33,9 @@
 #include "projection.h"
 #include "navit_nls.h"
 #include "bookmarks.h"
-
+#ifndef _WIN32
+#include <errno.h>
+#endif
 #define COL_COUNT 8
 
 static struct search_param {
@@ -50,22 +52,6 @@ static struct search_param {
     GtkTreeModel *liststore2;
 } search_param;
 
-static void button_map(GtkWidget *widget, struct search_param *search) {
-    GtkTreePath *path;
-    GtkTreeViewColumn *focus_column;
-    struct pcoord *c=NULL;
-    GtkTreeIter iter;
-
-    gtk_tree_view_get_cursor(GTK_TREE_VIEW(search->treeview), &path, &focus_column);
-    if(!path)
-        return;
-    if(!gtk_tree_model_get_iter(search->liststore2, &iter, path))
-        return;
-    gtk_tree_model_get (GTK_TREE_MODEL (search->liststore2), &iter, COL_COUNT, &c, -1);
-    if (c) {
-        navit_set_center(search->nav, c, 1);
-    }
-}
 
 static char *description(struct search_param *search, GtkTreeIter *iter) {
     char *desc,*car,*postal,*town,*street;
@@ -89,6 +75,38 @@ static char *description(struct search_param *search, GtkTreeIter *iter) {
     return desc;
 }
 
+static void button_map(GtkWidget *widget, struct search_param *search) {
+    GtkTreePath *path;
+    GtkTreeViewColumn *focus_column;
+    struct pcoord *point=NULL;	/* A pointer on the geographical position of the selected map point */
+    GtkTreeIter iter;
+    GList* p;
+
+    gtk_tree_view_get_cursor(GTK_TREE_VIEW(search->treeview), &path, &focus_column);
+    if(!path)
+        return;
+    if(!gtk_tree_model_get_iter(search->liststore2, &iter, path))
+        return;
+    gtk_tree_model_get (GTK_TREE_MODEL (search->liststore2), &iter, COL_COUNT, &point, -1);
+    if (point) {
+        GList* list = NULL;
+        struct lcoord *result = g_new0(struct lcoord, 1);
+        result->c.x=point->x;
+        result->c.y=point->y;
+        result->label=description(search, &iter);	/* Allocated here, freed by invoking g_free() below when parsing the GList */
+        list = g_list_prepend(list, result);
+        navit_populate_search_results_map(search->nav, list, NULL);
+        /* Parse the GList starting at list and free all payloads before freeing the list itself */
+        for(p=list; p; p=g_list_next(p)) {
+            if (((struct lcoord *)(p->data))->label)
+                g_free(((struct lcoord *)(p->data))->label);
+        }
+        g_list_free(list);
+
+        navit_set_center(search->nav, point, 1);
+    }
+}
+
 static void button_destination(GtkWidget *widget, struct search_param *search) {
     struct pcoord *c=NULL;
     GtkTreeIter iter;
@@ -99,6 +117,7 @@ static void button_destination(GtkWidget *widget, struct search_param *search) {
     gtk_tree_model_get (GTK_TREE_MODEL (search->liststore2), &iter, COL_COUNT, &c, -1);
     if (c) {
         desc=description(search, &iter);
+        navit_populate_search_results_map(search->nav, NULL, NULL);	/* Remove any highlighted point on the map */
         navit_set_destination(search->nav, c, desc, 1);
         g_free(desc);
     }
@@ -243,6 +262,11 @@ static void changed(GtkWidget *widget, struct search_param *search) {
             return;
         set_columns(search, 2);
     }
+    if (widget == search->entry_number) {
+            dbg(lvl_debug,"street");
+            search->attr.type=attr_house_number;
+            set_columns(search, 3);
+    }
 
     search_list_search(search->sl, &search->attr, search->partial);
     gtk_list_store_clear(search->liststore);
@@ -274,7 +298,10 @@ static void changed(GtkWidget *widget, struct search_param *search) {
                 gtk_list_store_set(search->liststore,&iter,4,res->street->name,-1);
             else
                 gtk_list_store_set(search->liststore,&iter,4,"",-1);
-
+            if (res->house_number)
+                gtk_list_store_set(search->liststore,&iter,5,res->house_number->house_number,-1);
+            else
+                gtk_list_store_set(search->liststore,&iter,5,"",-1);
         }
     }
 
@@ -350,6 +377,7 @@ static void parse_xkbd_args (const char *cmd, char **argv) {
                     bufp = buf;
                     break;
                 }
+            /* fall through */
             default:
                 *bufp++ = *p;
                 break;
@@ -381,7 +409,10 @@ static int spawn_xkbd (char *xkbd_path, char *xkbd_str) {
     int a = 0;
     size_t n;
 
-    pipe (fd);
+    if(pipe (fd) < 0) {
+        dbg(lvl_error,"Unable to create pipe (%s). Do not try to spawn keyboard.", strerror(errno));
+        return 0;
+    }
     kbd_pid = fork ();
     if (kbd_pid == 0) {
         close (fd[0]);
@@ -541,6 +572,7 @@ int destination_address(struct navit *nav) {
     if (country_attr) {
         cs=country_search_new(country_attr, 0);
         item=country_search_get_item(cs);
+        search->partial=0; // To enable city and initialize after first usage of the dialog
         if (item && item_attr_get(item, attr_country_name, &country_name))
             gtk_entry_set_text(GTK_ENTRY(search->entry_country), country_name.u.str);
         country_search_destroy(cs);

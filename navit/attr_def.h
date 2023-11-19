@@ -29,6 +29,12 @@
 /* prototypes */
 
 /* common */
+#ifndef ATTR
+#define ATTR(x) extern ##x;
+#endif
+#ifndef ATTR2
+#define ATTR2(x,y) extern ##y;
+#endif
 ATTR2(0x00000000,none)
 ATTR(any)
 ATTR(any_xml)
@@ -197,6 +203,11 @@ ATTR(nav_status)
 ATTR(shuffle)
 ATTR(repeat)
 ATTR(playing)
+ATTR(virtual_dpi)
+ATTR(real_dpi)
+ATTR(underground_alpha)
+ATTR(sunrise_degrees)
+ATTR(distance)
 ATTR2(0x00027500,type_rel_abs_begin)
 /* These attributes are int that can either hold relative or absolute values. See the
  * documentation of ATTR_REL_RELSHIFT for details.
@@ -257,6 +268,10 @@ ATTR(waypoints_flag) /* toggle for "set as destination" to switch between start 
 ATTR(no_warning_if_map_file_missing)
 ATTR(duplicate)
 ATTR(has_menu_button)
+ATTR(oneway)
+ATTR(tunnel_nightlayout)
+ATTR(layout_daynightauto)
+ATTR(town_use_postal)
 ATTR2(0x0002ffff,type_int_end)
 ATTR2(0x00030000,type_string_begin)
 ATTR(type)
@@ -347,7 +362,7 @@ ATTR(daylayout)
 ATTR(nightlayout)
 ATTR(xml_text)
 ATTR(layout_name)
-ATTR_UNUSED
+ATTR(default_layout)
 ATTR_UNUSED
 ATTR(status_text)
 ATTR(log_gpx_desc)
@@ -404,6 +419,7 @@ ATTR(spotify_playlist)
 ATTR(audio_device)
 ATTR(audio_device_mixer)
 ATTR(audio_playback_pcm)
+ATTR(outputdir)
 ATTR2(0x0003ffff,type_string_end)
 ATTR2(0x00040000,type_special_begin)
 ATTR(order)
@@ -418,6 +434,7 @@ ATTR(ch_edge)
 ATTR(zipfile_ref_block)
 ATTR(item_id)
 ATTR(pdl_gps_update)
+ATTR(poly_hole)
 ATTR2(0x0004ffff,type_special_end)
 ATTR2(0x00050000,type_double_begin)
 ATTR(position_height)
@@ -489,6 +506,8 @@ ATTR(layout)
 ATTR(profile_option)
 ATTR(script)
 ATTR(audio)
+ATTR(traffic)
+ATTR(spikes)
 ATTR2(0x0008ffff,type_object_end)
 ATTR2(0x00090000,type_coord_begin)
 ATTR2(0x0009ffff,type_coord_end)

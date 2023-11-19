@@ -26,6 +26,7 @@
 #include <gpsbt.h>
 #include <errno.h>
 #endif
+#include "config.h"
 #include "debug.h"
 #include "callback.h"
 #include "plugin.h"
@@ -166,15 +167,25 @@ vehicle_gpsd_callback(struct gps_data_t *data, const char *buf, size_t len,
         data->set &= ~SATELLITE_SET;
     }
     if (data->set & STATUS_SET) {
+#if GPSD_API_MAJOR_VERSION >= 10
+        priv->status = data->fix.status;
+#else
         priv->status = data->status;
+#endif // GPSD_API_MAJOR_VERSION >= 10
+
         data->set &= ~STATUS_SET;
     }
     if (data->set & MODE_SET) {
         priv->fix_type = data->fix.mode - 1;
+        dbg(lvl_debug,"Fix Mode: %i", priv->fix_type);
         data->set &= ~MODE_SET;
     }
     if (data->set & TIME_SET) {
+#if GPSD_API_MAJOR_VERSION >= 9
+        priv->fix_time = data->fix.time.tv_sec;
+#else
         priv->fix_time = data->fix.time;
+#endif
         data->set &= ~TIME_SET;
     }
 #ifdef HAVE_LIBGPS19
@@ -199,9 +210,10 @@ vehicle_gpsd_callback(struct gps_data_t *data, const char *buf, size_t len,
         data->set &= ~LATLON_SET;
     }
     // If data->fix.speed is NAN, then the drawing gets jumpy.
-    if (! isnan(data->fix.speed) && priv->fix_type > 0) {
-        callback_list_call_attr_0(priv->cbl, attr_position_coord_geo);
-    }
+    //if (! isnan(data->fix.speed) && priv->fix_type > 0) {
+
+    callback_list_call_attr_0(priv->cbl, attr_position_coord_geo);
+
     dbg(lvl_info,"speed ok");
 }
 
@@ -227,6 +239,7 @@ static int vehicle_gpsd_try_open(struct vehicle_priv *priv) {
     priv->gps = gps_open(source + 7, port);
     if(!priv->gps) {
 #endif
+        priv->cbt = callback_new_1(callback_cast(vehicle_gpsd_try_open), priv);
         dbg(lvl_error,"gps_open failed for '%s'. Retrying in %d seconds. Have you started gpsd?", priv->source,
             priv->retry_interval);
         g_free(source);
@@ -303,10 +316,11 @@ static void vehicle_gpsd_close(struct vehicle_priv *priv) {
     }
     if (priv->gps) {
         gps_close(priv->gps);
-#if GPSD_API_MAJOR_VERSION >= 5
-        g_free(priv->gps);
-#endif
-        priv->gps = NULL;
+//if we release the gps object a reconnect is no longer working.
+//#if GPSD_API_MAJOR_VERSION >= 5
+//        g_free(priv->gps);
+//#endif
+//        priv->gps = NULL;
     }
 #ifdef HAVE_GPSBT
     err = gpsbt_stop(&priv->context);
@@ -325,7 +339,11 @@ static void vehicle_gpsd_io(struct vehicle_priv *priv) {
         int read_result;
         /* Read until EOF, in case we are lagging behind.
          * No point in processing old GPS reports. */
+#if GPSD_API_MAJOR_VERSION >= 7
+        while((read_result=gps_read(priv->gps, NULL, 0))>0);
+#else
         while((read_result=gps_read(priv->gps))>0);
+#endif
         if(read_result==-1) {
             dbg(lvl_error,"gps_poll failed");
             vehicle_gpsd_close(priv);
@@ -361,6 +379,9 @@ static int vehicle_gpsd_position_attr_get(struct vehicle_priv *priv,
         enum attr_type type, struct attr *attr) {
     struct attr * active=NULL;
     switch (type) {
+    case attr_position_valid:   // Fix #1130
+        attr->u.num=(priv->fix_type>0?attr_position_valid_valid:attr_position_valid_invalid);
+        break;
     case attr_position_fix_type:
         attr->u.num = priv->fix_type;
         break;
@@ -406,7 +427,7 @@ static int vehicle_gpsd_position_attr_get(struct vehicle_priv *priv,
     }
     break;
     case attr_active:
-        active = attr_search(priv->attrs,NULL,attr_active);
+        active = attr_search(priv->attrs,attr_active);
         if(active != NULL) {
             attr->u.num=active->u.num;
             return 1;
@@ -432,20 +453,20 @@ static struct vehicle_priv *vehicle_gpsd_new_gpsd(struct vehicle_methods
     struct attr *source, *query, *retry_int;
 
     dbg(lvl_debug, "enter");
-    source = attr_search(attrs, NULL, attr_source);
+    source = attr_search(attrs, attr_source);
     ret = g_new0(struct vehicle_priv, 1);
 #if GPSD_API_MAJOR_VERSION >= 5
     ret->gps = g_new0(struct gps_data_t, 1);
 #endif
     ret->source = g_strdup(source->u.str);
-    query = attr_search(attrs, NULL, attr_gpsd_query);
+    query = attr_search(attrs, attr_gpsd_query);
     if (query) {
         ret->gpsd_query = g_strconcat(query->u.str, "\n", NULL);
     } else {
         ret->gpsd_query = g_strdup("w+x\n");
     }
     dbg(lvl_debug,"Format string for gpsd_query: %s",ret->gpsd_query);
-    retry_int = attr_search(attrs, NULL, attr_retry_interval);
+    retry_int = attr_search(attrs, attr_retry_interval);
     if (retry_int) {
         ret->retry_interval = retry_int->u.num;
         if (ret->retry_interval < MIN_RETRY_INTERVAL) {

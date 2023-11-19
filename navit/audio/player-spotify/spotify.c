@@ -780,7 +780,7 @@ void
 spotify_toggle_playback (struct audio_actions *action)
 {
 
-	struct attr* playing = attr_search(spotify->attrs,NULL, attr_playing);
+	struct attr* playing = attr_search(spotify->attrs, attr_playing);
 	if(playing){
 		spotify_get_attr(spotify, attr_playing, playing);
 		playing->u.num = spotify->playing;
@@ -961,7 +961,7 @@ player_spotify_new(struct audio_methods *meth, struct callback_list * cbl, struc
     struct attr *attr, *playing, *shuffle, *repeat;
     sp_error error;
     sp_session *session;
-    attr=attr_search(attrs, NULL, attr_spotify_password);
+    attr=attr_search(attrs, attr_spotify_password);
     if ( spotify_apikey_size == 0 ) {
         dbg(lvl_error,"You need to set your spotify api key. Cannot initialize plugin\n");
 	return NULL;
@@ -970,22 +970,22 @@ player_spotify_new(struct audio_methods *meth, struct callback_list * cbl, struc
 
 
     spotify = g_new0 (struct audio_priv, 1);
-    if ((attr = attr_search (attrs, NULL, attr_spotify_login)))
+    if ((attr = attr_search (attrs, attr_spotify_login)))
       {
           spotify->login = g_strdup(attr->u.str);
           dbg (lvl_info, "found spotify_login %s\n", spotify->login);
       }
-    if ((attr = attr_search (attrs, NULL, attr_spotify_password)))
+    if ((attr = attr_search (attrs, attr_spotify_password)))
       {
           spotify->password = g_strdup(attr->u.str);
           dbg (lvl_info, "found spotify_password %s\n", spotify->password);
       }
-    if ((attr = attr_search (attrs, NULL, attr_spotify_playlist)))
+    if ((attr = attr_search (attrs, attr_spotify_playlist)))
       {
           spotify->playlist = g_strdup(attr->u.str);
           dbg (lvl_info, "found spotify_playlist %s\n", spotify->playlist);
       }
-    if ((attr = attr_search (attrs, NULL, attr_audio_playback_pcm)))
+    if ((attr = attr_search (attrs, attr_audio_playback_pcm)))
       {
           spotify->audio_playback_pcm = g_strdup(attr->u.str);
           dbg (lvl_info, "found audio playback pcm %s\n", spotify->audio_playback_pcm);
@@ -1010,7 +1010,7 @@ player_spotify_new(struct audio_methods *meth, struct callback_list * cbl, struc
     spotify->playing = FALSE;
 	spotify->attrs=attrs;
     //*
-    playing = attr_search(spotify->attrs, NULL, attr_playing);
+    playing = attr_search(spotify->attrs, attr_playing);
 
     if(!playing){
 		playing = g_new0( struct attr, 1);
@@ -1018,7 +1018,7 @@ player_spotify_new(struct audio_methods *meth, struct callback_list * cbl, struc
 		spotify->attrs=attr_generic_add_attr(spotify->attrs, playing);
 		dbg (lvl_debug,"*\n");
 	}	
-	repeat = attr_search(spotify->attrs, NULL, attr_repeat);
+	repeat = attr_search(spotify->attrs, attr_repeat);
 
     if(!repeat){
 		repeat = g_new0( struct attr, 1);
@@ -1026,7 +1026,7 @@ player_spotify_new(struct audio_methods *meth, struct callback_list * cbl, struc
 		spotify->attrs=attr_generic_add_attr(spotify->attrs, repeat);
 		dbg (lvl_debug,"*\n");
 	}	
-	shuffle = attr_search(spotify->attrs, NULL, attr_shuffle);
+	shuffle = attr_search(spotify->attrs, attr_shuffle);
 
     if(!shuffle){
 		shuffle = g_new0( struct attr, 1);

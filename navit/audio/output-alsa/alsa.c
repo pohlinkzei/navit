@@ -259,13 +259,13 @@ output_alsa_new(struct audio_methods *meth, struct callback_list * cbl, struct a
 
 	dbg(lvl_error,"Real alsa init\n");
 
-        if ((attr = attr_search (attrs, NULL, attr_audio_device)))
+        if ((attr = attr_search (attrs, attr_audio_device)))
           {
  	      card=g_strdup(attr->u.str);
               dbg (lvl_info, "Will use alsa device %s\n", card);
           }
 
-        if ((attr = attr_search (attrs, NULL, attr_audio_device_mixer)))
+        if ((attr = attr_search (attrs, attr_audio_device_mixer)))
           {
  	      selem_name=g_strdup(attr->u.str);
               dbg (lvl_info, "Will use alsa mixer %s\n", selem_name);

@@ -16,7 +16,6 @@
 #include "window.h"
 #include "graphics_win32.h"
 #include "xpm2bmp.h"
-#include "support/win32/ConvertUTF.h"
 #include "profile.h"
 #include "keys.h"
 
@@ -236,7 +235,7 @@ struct graphics_gc_priv {
     int         fg_alpha;
     int         bg_alpha;
     COLORREF    bg_color;
-    int		dashed;
+    int        dashed;
     HPEN hpen;
     HBRUSH hbrush;
     struct graphics_priv *gr;
@@ -612,17 +611,17 @@ static HANDLE CreateGraphicsWindows( struct graphics_priv* gr, HMENU hMenu ) {
     WNDCLASS wc;
 #else
     WNDCLASSEX wc;
-    wc.cbSize		 = sizeof(WNDCLASSEX);
-    wc.hIconSm		 = NULL;
+    wc.cbSize         = sizeof(WNDCLASSEX);
+    wc.hIconSm         = NULL;
 #endif
 
-    wc.style	 = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
-    wc.lpfnWndProc	= WndProc;
-    wc.cbClsExtra	= 0;
-    wc.cbWndExtra	= 64;
-    wc.hInstance	= GetModuleHandle(NULL);
-    wc.hIcon	= NULL;
-    wc.hCursor	= LoadCursor(NULL, IDC_ARROW);
+    wc.style     = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+    wc.lpfnWndProc    = WndProc;
+    wc.cbClsExtra    = 0;
+    wc.cbWndExtra    = 64;
+    wc.hInstance    = GetModuleHandle(NULL);
+    wc.hIcon    = NULL;
+    wc.hCursor    = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
     wc.lpszMenuName  = NULL;
     wc.lpszClassName = g_szClassName;
@@ -739,8 +738,8 @@ static void gc_set_dashes(struct graphics_gc_priv *gc, int width, int offset, un
     gc->dashed=n>0;
     DeleteObject (gc->hpen);
     gc->hpen = CreatePen(gc->dashed?PS_DASH:PS_SOLID, gc->line_width, gc->fg_color );
-//	gdk_gc_set_dashes(gc->gc, 0, (gint8 *)dash_list, n);
-//	gdk_gc_set_line_attributes(gc->gc, 1, GDK_LINE_ON_OFF_DASH, GDK_CAP_ROUND, GDK_JOIN_ROUND);
+//    gdk_gc_set_dashes(gc->gc, 0, (gint8 *)dash_list, n);
+//    gdk_gc_set_line_attributes(gc->gc, 1, GDK_LINE_ON_OFF_DASH, GDK_CAP_ROUND, GDK_JOIN_ROUND);
 }
 
 
@@ -827,6 +826,231 @@ static void draw_polygon(struct graphics_priv *gr, struct graphics_gc_priv *gc, 
     SelectObject( gr->hMemDC, holdpen);
 }
 
+#if HAVE_API_WIN32_CE
+/*
+ * Windows CE doesn't feature GraphicsPath, so in order to draw filled polygons
+ * with holes, we need to resort on manual raycasting. The following functions
+ * have been inspired from SDL backend that does need to raycast all polygons.
+ */
+
+/* Helper qsort callback for polygon drawing */
+static int gfxPrimitivesCompareInt(const void *a, const void *b) {
+    return (*(const int *) a) - (*(const int *) b);
+}
+
+/**
+ * @brief render filled polygon with holes by raycasting along the y axis
+ *
+ * This function renders a filled polygon that can have holes by SDL primitive
+ * graphic functions by raycasting along the y axis. This works basically the same
+ * as for complex polygons. Only difference is the "holes" are individual
+ * polygon loops not connected to the outer loop.
+ * FIXME: This draws well as long as the "hole" does not intersect with the
+ * outer polygon. However such multipolygons are seen a mapping error in OSM
+ * and therefore the rendering err may even help in detecting them.
+ * But this could be fixed by never starting a line on a vertex that came from a
+ * hole intersection.
+ *
+ * @param gr graphics instance
+ * @param gc graphics context
+ * @param p Array of points for the outer polygon
+ * @param count Number of points in outer polygon
+ * @param hole_count Number of hole polygons
+ * @param ccount number of points per hole polygon
+ * @oaram holes array of point arrays. One for each "hole"
+ */
+static void draw_polygon_with_holes (struct graphics_priv *gr, struct graphics_gc_priv *gc, struct point *p, int count,
+                                     int hole_count, int* ccount, struct point **holes) {
+    int vertex_max;
+    int vertex_count;
+    int * vertexes;
+    int miny, maxy;
+    int i;
+    int y;
+    HPEN holdpen;
+    HBRUSH holdbrush;
+    HPEN linepen;
+
+    /* Sanity check number of edges */
+    if (count < 3) {
+        return;
+    }
+
+    /*
+     * Prepare a buffer for vertexes. Maximum number of vertexes is the number of points
+     * of polygon and holes
+     */
+    vertex_max = count;
+    for(i =0; i < hole_count; i ++) {
+        vertex_max += ccount[i];
+    }
+    vertexes = g_malloc(sizeof(int) * vertex_max);
+    if(vertexes == NULL) {
+        return;
+    }
+
+    /* create pen to draw the lines */
+    linepen = CreatePen( PS_SOLID, 1, gc->fg_color );
+
+    /* remeber pen and brush */
+    holdpen = SelectObject( gr->hMemDC, linepen );
+    holdbrush = SelectObject( gr->hMemDC, gc->hbrush );
+
+    /* calculate y min and max coordinate. We can ignore the holes, as we won't render hole
+     * parts "bigger" than the surrounding polygon.*/
+    miny = p[0].y;
+    maxy = p[0].y;
+    for (i = 1; (i < count); i++) {
+        if (p[i].y < miny) {
+            miny = p[i].y;
+        } else if (p[i].y > maxy) {
+            maxy = p[i].y;
+        }
+    }
+
+    /* scan y coordinates from miny to maxy */
+    for(y = miny; y <= maxy ; y ++) {
+        int h;
+        vertex_count=0;
+        /* calculate the intersecting points of the polygon with current y and add to vertexes array*/
+        for (i = 0; (i < count); i++) {
+            int ind1;
+            int ind2;
+            struct point p1;
+            struct point p2;
+
+            if (!i) {
+                ind1 = count - 1;
+                ind2 = 0;
+            } else {
+                ind1 = i - 1;
+                ind2 = i;
+            }
+            p1.y = p[ind1].y;
+            p2.y = p[ind2].y;
+            if (p1.y < p2.y) {
+                p1.x = p[ind1].x;
+                p2.x = p[ind2].x;
+            } else if (p1.y > p2.y) {
+                p2.y = p[ind1].y;
+                p1.y = p[ind2].y;
+                p2.x = p[ind1].x;
+                p1.x = p[ind2].x;
+            } else {
+                continue;
+            }
+            if ( ((y >= p1.y) && (y < p2.y)) || ((y == maxy) && (y > p1.y) && (y <= p2.y)) ) {
+                vertexes[vertex_count++] = ((65536 * (y - p1.y)) / (p2.y - p1.y)) * (p2.x - p1.x) + (65536 * p1.x);
+            }
+        }
+        for(h= 0; h < hole_count; h ++) {
+            /* add the intersecting points from the holes as well */
+            for (i = 0; (i < ccount[h]); i++) {
+                int ind1;
+                int ind2;
+                struct point p1;
+                struct point p2;
+
+                if (!i) {
+                    ind1 = ccount[h] - 1;
+                    ind2 = 0;
+                } else {
+                    ind1 = i - 1;
+                    ind2 = i;
+                }
+                p1.y = holes[h][ind1].y;
+                p2.y = holes[h][ind2].y;
+                if (p1.y < p2.y) {
+                    p1.x = holes[h][ind1].x;
+                    p2.x = holes[h][ind2].x;
+                } else if (p1.y > p2.y) {
+                    p2.y = holes[h][ind1].y;
+                    p1.y = holes[h][ind2].y;
+                    p2.x = holes[h][ind1].x;
+                    p1.x = holes[h][ind2].x;
+                } else {
+                    continue;
+                }
+                if ( ((y >= p1.y) && (y < p2.y)) || ((y == maxy) && (y > p1.y) && (y <= p2.y)) ) {
+                    vertexes[vertex_count++] = ((65536 * (y - p1.y)) / (p2.y - p1.y)) * (p2.x - p1.x) + (65536 * p1.x);
+                }
+            }
+        }
+
+        /* sort the vertexes */
+        qsort(vertexes, vertex_count, sizeof(int), gfxPrimitivesCompareInt);
+        /* draw the lines between every second vertex */
+        for (i = 0; (i < vertex_count); i +=2) {
+            int xa;
+            int xb;
+            xa = (vertexes[i] >> 16);
+            xb = (vertexes[i+1] >> 16);
+            MoveToEx( gr->hMemDC, xa+1, y, NULL );
+            LineTo( gr->hMemDC, xb, y );
+        }
+    }
+    /* free vertex buffer */
+    g_free(vertexes);
+
+    /* restore pen and brush */
+    SelectObject( gr->hMemDC, holdbrush);
+    SelectObject( gr->hMemDC, holdpen);
+
+    /* delete linepen */
+    DeleteObject(linepen);
+}
+#else
+static void draw_polygon_with_holes (struct graphics_priv *gr, struct graphics_gc_priv *gc, struct point *p, int count,
+                                     int hole_count, int* ccount, struct point **holes) {
+    /* remeber pen and brush */
+    HPEN holdpen = SelectObject( gr->hMemDC, gc->hpen );
+    HBRUSH holdbrush = SelectObject( gr->hMemDC, gc->hbrush );
+    /* remember fill mode */
+    int holdmode = GetPolyFillMode( gr->hMemDC );
+
+    /* set polygon fill mode */
+    SetPolyFillMode( gr->hMemDC, ALTERNATE );
+
+    /* use poly path */
+    if(BeginPath(gr->hMemDC)) {
+        int a;
+        /* add outer polygon */
+        if (sizeof(POINT) != sizeof(struct point)) {
+            int i;
+            POINT* points=g_alloca(sizeof(POINT)*count);
+            for ( i=0; i< count; i++ ) {
+                points[i].x = p[i].x;
+                points[i].y = p[i].y;
+            }
+            Polyline( gr->hMemDC, points, count );
+        } else
+            Polyline( gr->hMemDC, (POINT *)p, count);
+        /* add inner polygons */
+        for(a = 0; a<hole_count; a ++) {
+            if (sizeof(POINT) != sizeof(struct point)) {
+                int i;
+                POINT* points=g_alloca(sizeof(POINT)*ccount[a]);
+                for ( i=0; i< ccount[a]; i++ ) {
+                    points[i].x = holes[a][i].x;
+                    points[i].y = holes[a][i].y;
+                }
+                Polyline( gr->hMemDC, points, ccount[a] );
+            } else
+                Polyline( gr->hMemDC, (POINT *)(holes[a]), ccount[a]);
+        }
+        /* done with this path */
+        EndPath(gr->hMemDC);
+        /* fill the shape */
+        FillPath(gr->hMemDC);
+    }
+
+    /* restore fill mode */
+    SetPolyFillMode(gr->hMemDC, holdmode);
+    /* restore pen and brush */
+    SelectObject( gr->hMemDC, holdbrush);
+    SelectObject( gr->hMemDC, holdpen);
+}
+#endif
 
 static void draw_rectangle(struct graphics_priv *gr, struct graphics_gc_priv *gc, struct point *p, int w, int h) {
     HPEN holdpen = SelectObject( gr->hMemDC, gc->hpen );
@@ -979,26 +1203,25 @@ static void draw_text(struct graphics_priv *gr, struct graphics_gc_priv *fg, str
 
     {
         wchar_t utf16[1024];
-        const UTF8 *utf8 = (UTF8 *)text;
-        UTF16 *utf16p = (UTF16 *) utf16;
         SetBkMode (gr->hMemDC, TRANSPARENT);
-        if (ConvertUTF8toUTF16(&utf8, utf8+strlen(text),
-                               &utf16p, utf16p+sizeof(utf16),
-                               lenientConversion) == conversionOK) {
+
+        int convertResult = MultiByteToWideChar(CP_UTF8, 0, text, -1, utf16, 1024);
+
+        if (convertResult > 0) { // Convert was ok
             if(bg && bg->fg_alpha) {
                 SetTextColor(gr->hMemDC, bg->fg_color);
                 ExtTextOutW(gr->hMemDC, -1, -1, 0, NULL,
-                            utf16, (wchar_t*) utf16p - utf16, NULL);
+                            utf16, convertResult-1, NULL);
                 ExtTextOutW(gr->hMemDC, 1, 1, 0, NULL,
-                            utf16, (wchar_t*) utf16p - utf16, NULL);
+                            utf16, convertResult-1, NULL);
                 ExtTextOutW(gr->hMemDC, -1, 1, 0, NULL,
-                            utf16, (wchar_t*) utf16p - utf16, NULL);
+                            utf16, convertResult-1, NULL);
                 ExtTextOutW(gr->hMemDC, 1, -1, 0, NULL,
-                            utf16, (wchar_t*) utf16p - utf16, NULL);
+                            utf16, convertResult-1, NULL);
             }
             SetTextColor(gr->hMemDC, fg->fg_color);
             ExtTextOutW(gr->hMemDC, 0, 0, 0, NULL,
-                        utf16, (wchar_t*) utf16p - utf16, NULL);
+                        utf16, convertResult-1, NULL);
         }
     }
 
@@ -1112,7 +1335,7 @@ static int pngdecode(struct graphics_priv *gr, char *name, struct graphics_image
 
     /* expand images to bit-depth 8 (only applicable for grayscale images) */
     if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA && bit_depth < 8)
-        png_set_gray_1_2_4_to_8(png_ptr);
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
 
     /* Expand grayscale to rgb */
     if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
@@ -1462,8 +1685,11 @@ static struct graphics_methods graphics_methods = {
     get_text_bbox,
     overlay_disable,
     overlay_resize,
+    NULL, /* set_attr */
     NULL, /* show_native_keyboard */
     NULL, /* hide_native_keyboard */
+    NULL, /* get dpi */
+    draw_polygon_with_holes
 };
 
 
@@ -1517,19 +1743,19 @@ static struct graphics_priv* graphics_win32_new( struct navit *nav, struct graph
     this_=graphics_win32_new_helper(meth);
     this_->nav=nav;
     this_->frame=1;
-    if ((attr=attr_search(attrs, NULL, attr_frame)))
+    if ((attr=attr_search(attrs, attr_frame)))
         this_->frame=attr->u.num;
     this_->x=0;
-    if ((attr=attr_search(attrs, NULL, attr_x)))
+    if ((attr=attr_search(attrs, attr_x)))
         this_->x=attr->u.num;
     this_->y=0;
-    if ((attr=attr_search(attrs, NULL, attr_y)))
+    if ((attr=attr_search(attrs, attr_y)))
         this_->y=attr->u.num;
     this_->width=792;
-    if ((attr=attr_search(attrs, NULL, attr_w)))
+    if ((attr=attr_search(attrs, attr_w)))
         this_->width=attr->u.num;
     this_->height=547;
-    if ((attr=attr_search(attrs, NULL, attr_h)))
+    if ((attr=attr_search(attrs, attr_h)))
         this_->height=attr->u.num;
     this_->overlays = NULL;
     this_->cbl=cbl;

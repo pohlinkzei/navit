@@ -16,7 +16,6 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301, USA.
  */
-//Style with: clang-format -style=WebKit -i
 
 #include <glib.h>
 #ifdef HAVE_UNISTD_H
@@ -91,7 +90,10 @@ void QNavitQuick::paint(QPainter* painter) {
     painter->drawPixmap(graphics_priv->scroll_x, graphics_priv->scroll_y, *graphics_priv->pixmap,
                         boundingRect().x(), boundingRect().y(),
                         boundingRect().width(), boundingRect().height());
-    paintOverlays(painter, graphics_priv, &event);
+    /* disable on root pane disables ALL overlays (for drag of background) */
+    if(!(graphics_priv->disable)) {
+        paintOverlays(painter, graphics_priv, &event);
+    }
 }
 
 void QNavitQuick::keyPressEvent(QKeyEvent* event) {
@@ -165,23 +167,20 @@ void QNavitQuick::keyReleaseEvent(QKeyEvent* event) {
 void QNavitQuick::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) {
     dbg(lvl_debug, "enter");
     QQuickPaintedItem::geometryChanged(newGeometry, oldGeometry);
-    QPainter* painter = NULL;
     if (graphics_priv == NULL) {
         dbg(lvl_debug, "Context not set, aborting");
         return;
     }
     if (graphics_priv->pixmap != NULL) {
-        delete graphics_priv->pixmap;
-        graphics_priv->pixmap = NULL;
+        if((width() != graphics_priv->pixmap->width()) || (height() != graphics_priv->pixmap->height())) {
+            delete graphics_priv->pixmap;
+            graphics_priv->pixmap = NULL;
+        }
     }
-
-    graphics_priv->pixmap = new QPixmap(width(), height());
-    painter = new QPainter(graphics_priv->pixmap);
-    if (painter != NULL) {
-        QBrush brush;
-        painter->fillRect(0, 0, width(), height(), brush);
-        delete painter;
+    if (graphics_priv->pixmap == NULL) {
+        graphics_priv->pixmap = new QPixmap(width(), height());
     }
+    graphics_priv->pixmap->fill(Qt::transparent);
     dbg(lvl_debug, "size %fx%f", width(), height());
     dbg(lvl_debug, "pixmap %p %dx%d", graphics_priv->pixmap, graphics_priv->pixmap->width(),
         graphics_priv->pixmap->height());
